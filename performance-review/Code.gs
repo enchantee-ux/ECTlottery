@@ -252,9 +252,14 @@ function writeResults() {
 
 /* ───────────── 網頁入口 ───────────── */
 
+const FAVICON_URL = 'https://raw.githubusercontent.com/enchantee-ux/ECTlottery/bdf521548cff20fdf3e59a6a262edd7e0cc6ac98/performance-review/icon.png';
+
 function doGet() {
-  return HtmlService.createHtmlOutputFromFile('index').setTitle('樂朗奇 年度績效評核')
+  const out = HtmlService.createHtmlOutputFromFile('index').setTitle('樂朗奇 年度績效評核')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  // 分頁小圖示：圖檔放在 GitHub，讀不到時不影響頁面
+  try { out.setFaviconUrl(FAVICON_URL); } catch (e) { /* 維持預設圖示 */ }
+  return out;
 }
 
 function api(action, payloadJson) {
