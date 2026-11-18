@@ -142,6 +142,22 @@ var VI = {
   '寫下具體的事，例如：謝謝你在中秋檔期幫我頂了三天的出貨': 'Hãy viết việc cụ thể, ví dụ: cảm ơn bạn đã giúp tôi ba ngày trong mùa Trung thu',
   '＋ 再寫一張': '＋ Viết thêm thiệp', '送出感謝卡': 'Gửi thiệp cảm ơn', '請至少寫給 {0} 位同事': 'Vui lòng viết cho ít nhất {0} đồng nghiệp',
   '其他': 'Khác', '連線失敗，請再試一次': 'Kết nối thất bại, vui lòng thử lại',
+  '指定同儕評核人': 'Chỉ định người nhận xét',
+  '為每位直屬同仁指定合作對象，請在同仁開始填寫前完成': 'Chỉ định người nhận xét cho từng nhân viên trực thuộc. Vui lòng hoàn thành trước khi nhân viên bắt đầu điền.',
+  '為每位直屬同仁挑選今年和他實際合作最多的同事，可以跨部門。被指定的人會在自己的頁面看到要填寫的對象；當事人不會知道是誰評他。': 'Hãy chọn những đồng nghiệp làm việc nhiều nhất với từng nhân viên trong năm nay, có thể khác bộ phận. Người được chỉ định sẽ thấy tên người cần nhận xét trên trang của mình; người được nhận xét sẽ không biết ai nhận xét mình.',
+  '尚未指定': 'Chưa chỉ định', '{0} 的同儕評核人': 'Người nhận xét cho {0}',
+  '請選今年和他實際合作過的同事，{0} 到 {1} 位，目前已選 <b id="selN">{2}</b> 位。': 'Hãy chọn {0} đến {1} đồng nghiệp đã thực sự làm việc cùng trong năm nay. Đã chọn <b id="selN">{2}</b> người.',
+  '至少 1 位同部門、至少 1 位其他部門，同一部門最多 {0} 位。名字旁的數字是這位同事已經要評幾個人，請盡量分散。': 'Ít nhất 1 người cùng bộ phận và ít nhất 1 người khác bộ phận; mỗi bộ phận tối đa {0} người. Con số bên cạnh tên là số người mà đồng nghiệp đó đã phải nhận xét, hãy cố gắng phân bổ đều.',
+  '（同部門）': ' (cùng bộ phận)', '儲存': 'Lưu', '儲存中…': 'Đang lưu…', '已儲存': 'Đã lưu',
+  '最多選 {0} 位': 'Chọn tối đa {0} người', '同一個部門最多選 {0} 位': 'Mỗi bộ phận chọn tối đa {0} người',
+  '{0} 已經要評 {1} 個人，建議換一位分散負擔': '{0} đã phải nhận xét {1} người, nên chọn người khác để giảm tải',
+  '請至少選 {0} 位': 'Vui lòng chọn ít nhất {0} người',
+  '請至少選 1 位同部門的同事': 'Vui lòng chọn ít nhất 1 đồng nghiệp cùng bộ phận',
+  '請至少選 1 位其他部門的同事': 'Vui lòng chọn ít nhất 1 đồng nghiệp khác bộ phận',
+  '評分前可以先看同仁的自評。離職風險與關鍵人才的判斷只有執行長看得到。': 'Trước khi chấm điểm, bạn có thể xem bản tự đánh giá của nhân viên. Đánh giá về nguy cơ nghỉ việc và nhân sự chủ chốt chỉ Giám đốc điều hành xem được.',
+  '・尚未自評': '・Chưa tự đánh giá', '{0} 的自評': 'Bản tự đánh giá của {0}', '評核 {0}': 'Đánh giá {0}',
+  '這位同仁尚未送出自評，您仍可先評分，之後再回來調整。': 'Nhân viên này chưa gửi bản tự đánh giá. Bạn vẫn có thể chấm điểm trước và điều chỉnh sau.',
+  '開啟執行長儀表板': 'Mở bảng điều khiển Giám đốc điều hành (tiếng Trung)',
   '是': 'Có', '否': 'Không', '低': 'Thấp', '中': 'Trung bình', '高': 'Cao',
   '最佳支援': 'Hỗ trợ tốt nhất', '專業可靠': 'Chuyên nghiệp, đáng tin', '溫暖貼心': 'Ấm áp, chu đáo', '創意點子': 'Ý tưởng sáng tạo', '使命必達': 'Luôn hoàn thành nhiệm vụ'
 };
@@ -266,7 +282,7 @@ function viewHome() {
       return '<div><div class="quote">' + esc(r.text) + '</div><p class="muted small">' + esc(r.from) + '（' + esc(r.dept) + '）' + (r.tag ? '　' + esc(t(r.tag)) : '') + '</p></div>';
     }).join('') : '<p class="muted">' + t('目前還沒有收到感謝卡。') + '</p>') + '</div>';
   }
-  if (D.me.isCEO) h += '<button class="btn" data-go="dash">開啟執行長儀表板</button>';
+  if (D.me.isCEO) h += '<button class="btn" data-go="dash">' + t('開啟執行長儀表板') + '</button>';
   return h + '<button class="back" data-logout="1" style="align-self:center">' + t('登出') + '</button>';
 }
 
@@ -330,9 +346,9 @@ function submitForm() {
 }
 function send(payload, after, action) {
   if (busy) return; busy = true;
-  var b = app.querySelector('[data-submit]'); if (b) { b.disabled = true; b.textContent = t('送出中…'); }
-  call(action || 'save', payload).then(function () { return call('boot'); }).then(function (d) {
-    busy = false; D = d; toast(t('已送出')); after();
+  var b = app.querySelector('[data-submit]'); if (b) { b.disabled = true; b.textContent = t(action === 'assign' ? '儲存中…' : '送出中…'); }
+  call(action || 'save', payload).then(function (d) {
+    busy = false; D = d; toast(t(action === 'assign' ? '已儲存' : '已送出')); after();
   }).catch(function (e) { busy = false; if (e.code !== 'SESSION') { toast(e.message); render(); } });
 }
 
@@ -388,10 +404,10 @@ function submitThanks() {
 
 /* ───── 主管指定同儕評核人 ───── */
 function viewAssignList() {
-  return '<button class="back" data-go="home">‹ 返回</button><div><h1>指定同儕評核人</h1><p class="muted">為每位直屬同仁挑選今年和他實際合作最多的同事，可以跨部門。被指定的人會在自己的頁面看到要填寫的對象；當事人不會知道是誰評他。</p></div>' +
+  return '<button class="back" data-go="home">' + t('‹ 返回') + '</button><div><h1>' + t('指定同儕評核人') + '</h1><p class="muted">' + t('為每位直屬同仁挑選今年和他實際合作最多的同事，可以跨部門。被指定的人會在自己的頁面看到要填寫的對象；當事人不會知道是誰評他。') + '</p></div>' +
     '<div class="card">' + D.reports.map(function (r) {
       return '<div class="prow"><button class="who" data-assign="' + esc(r.id) + '"><b>' + esc(r.name) + '</b> <span class="muted">' +
-        (r.raters.length ? esc(r.raters.map(function (id) { return (byId(r.pool, id) || {}).name || id; }).join('、')) : '尚未指定') + '</span></button>' +
+        (r.raters.length ? esc(r.raters.map(function (id) { return (byId(r.pool, id) || {}).name || id; }).join('、')) : t('尚未指定')) + '</span></button>' +
         pill(r.raters.length >= r.need ? 'done' : 'todo') + '</div>';
     }).join('') + '</div>';
 }
@@ -400,15 +416,15 @@ function viewAssign() {
   if (!F) { F = { sel: {} }; r.raters.forEach(function (id) { if (byId(r.pool, id)) F.sel[id] = true; }); }
   var depts = {}; r.pool.forEach(function (p) { (depts[p.dept] = depts[p.dept] || []).push(p); });
   var names = Object.keys(depts).sort(function (x, y) { return (y === r.dept) - (x === r.dept); });
-  var h = '<button class="back" data-go="assignList">‹ 返回</button><div><h1>' + esc(r.name) + ' 的同儕評核人</h1><p class="muted">請選今年和他實際合作過的同事，' + r.need + ' 到 ' + r.max +
-    ' 位，目前已選 <b id="selN">' + Object.keys(F.sel).length + '</b> 位。</p></div>' +
-    '<div class="notice info">至少 1 位同部門、至少 1 位其他部門，同一部門最多 ' + r.maxPerDept + ' 位。名字旁的數字是這位同事已經要評幾個人，請盡量分散。</div>';
+  var h = '<button class="back" data-go="assignList">' + t('‹ 返回') + '</button><div><h1>' + t('{0} 的同儕評核人', esc(r.name)) + '</h1><p class="muted">' +
+    t('請選今年和他實際合作過的同事，{0} 到 {1} 位，目前已選 <b id="selN">{2}</b> 位。', r.need, r.max, Object.keys(F.sel).length) + '</p></div>' +
+    '<div class="notice info">' + t('至少 1 位同部門、至少 1 位其他部門，同一部門最多 {0} 位。名字旁的數字是這位同事已經要評幾個人，請盡量分散。', r.maxPerDept) + '</div>';
   h += names.map(function (d) {
-    return '<div class="card"><h3>' + esc(d || '其他') + (d === r.dept ? '（同部門）' : '') + '</h3><div class="wrap">' + depts[d].map(function (p) {
+    return '<div class="card"><h3>' + esc(d || t('其他')) + (d === r.dept ? t('（同部門）') : '') + '</h3><div class="wrap">' + depts[d].map(function (p) {
       return '<button type="button" class="chip ' + (F.sel[p.id] ? 'on' : '') + '" data-pick="' + esc(p.id) + '">' + esc(p.name) + ' <span class="num small">' + p.load + '</span></button>';
     }).join('') + '</div></div>';
   }).join('');
-  if (D.cfg.open) h += '<div class="sticky"><button class="btn" data-submit="assign">儲存</button></div>';
+  if (D.cfg.open) h += '<div class="sticky"><button class="btn" data-submit="assign">' + t('儲存') + '</button></div>';
   return h;
 }
 function pickRater(el) {
@@ -416,10 +432,10 @@ function pickRater(el) {
   if (F.sel[id]) delete F.sel[id];
   else {
     var ids = Object.keys(F.sel);
-    if (ids.length >= r.max) return toast('最多選 ' + r.max + ' 位');
-    if (ids.filter(function (x) { return byId(r.pool, x).dept === p.dept; }).length >= r.maxPerDept) return toast('同一個部門最多選 ' + r.maxPerDept + ' 位');
+    if (ids.length >= r.max) return toast(t('最多選 {0} 位', r.max));
+    if (ids.filter(function (x) { return byId(r.pool, x).dept === p.dept; }).length >= r.maxPerDept) return toast(t('同一個部門最多選 {0} 位', r.maxPerDept));
     F.sel[id] = true;
-    if (p.load >= r.loadWarn) toast(p.name + ' 已經要評 ' + p.load + ' 個人，建議換一位分散負擔');
+    if (p.load >= r.loadWarn) toast(t('{0} 已經要評 {1} 個人，建議換一位分散負擔', p.name, p.load));
   }
   el.classList.toggle('on', !!F.sel[id]);
   document.getElementById('selN').textContent = Object.keys(F.sel).length;
@@ -427,31 +443,32 @@ function pickRater(el) {
 function submitAssign() {
   var r = byId(D.reports, view.arg), ids = Object.keys(F.sel);
   var isSame = function (x) { return x.dept === r.dept; }, picked = ids.map(function (id) { return byId(r.pool, id); });
-  if (ids.length < r.need) return toast('請至少選 ' + r.need + ' 位');
-  if (r.pool.some(isSame) && !picked.some(isSame)) return toast('請至少選 1 位同部門的同事');
-  if (r.pool.some(function (x) { return !isSame(x); }) && picked.every(isSame)) return toast('請至少選 1 位其他部門的同事');
+  if (ids.length < r.need) return toast(t('請至少選 {0} 位', r.need));
+  if (r.pool.some(isSame) && !picked.some(isSame)) return toast(t('請至少選 1 位同部門的同事'));
+  if (r.pool.some(function (x) { return !isSame(x); }) && picked.every(isSame)) return toast(t('請至少選 1 位其他部門的同事'));
   send({ target: r.id, raters: ids }, function () { go('assignList'); }, 'assign');
 }
 
 /* ───── 主管評核 ───── */
 function viewMgrList() {
-  return '<button class="back" data-go="home">‹ 返回</button><div><h1>主管評核</h1><p class="muted">評分前可以先看同仁的自評。離職風險與關鍵人才的判斷只有執行長看得到。</p></div>' +
+  return '<button class="back" data-go="home">' + t('‹ 返回') + '</button><div><h1>' + t('主管評核') + '</h1><p class="muted">' + t('評分前可以先看同仁的自評。離職風險與關鍵人才的判斷只有執行長看得到。') + '</p></div>' +
     '<div class="card">' + D.reports.map(function (r) {
-      return '<div class="prow"><button class="who" data-report="' + esc(r.id) + '"><b>' + esc(r.name) + '</b> <span class="muted">' + esc(r.title || r.dept) + (r.self ? '' : '・尚未自評') + '</span></button>' + pill(r.answers ? 'done' : 'todo') + '</div>';
+      return '<div class="prow"><button class="who" data-report="' + esc(r.id) + '"><b>' + esc(r.name) + '</b> <span class="muted">' + esc(r.title || r.dept) + (r.self ? '' : t('・尚未自評')) + '</span></button>' + pill(r.answers ? 'done' : 'todo') + '</div>';
     }).join('') + '</div>';
 }
 function answersHtml(form, a, forms) {
   var fields = (forms || D.forms)[form].fields, scores = fields.filter(function (f) { return f.type === 'score'; });
-  var h = scores.map(function (f) { return '<div class="kv"><span>' + esc(f.label) + '</span><span>' + fmt(a[f.k]) + '</span></div>'; }).join('');
+  var lab = function (f) { return forms ? f.label : L(f, 'label'); };
+  var h = scores.map(function (f) { return '<div class="kv"><span>' + esc(lab(f)) + '</span><span>' + fmt(a[f.k]) + '</span></div>'; }).join('');
   fields.filter(function (f) { return f.type !== 'score' && String(a[f.k] || '').trim(); }).forEach(function (f) {
-    h += '<div><p class="small muted">' + esc(f.label) + '</p><div class="quote">' + esc(a[f.k]) + '</div></div>';
+    h += '<div><p class="small muted">' + esc(lab(f)) + '</p><div class="quote">' + esc(a[f.k]) + '</div></div>';
   });
   return h;
 }
 function openReport(id) {
   var r = byId(D.reports, id);
-  var extra = '<details class="card"><summary><b>' + esc(r.name) + ' 的自評</b></summary>' + (r.self ? '<div class="stack">' + answersHtml('self', r.self) + '</div>' : '<p class="muted">這位同仁尚未送出自評，您仍可先評分，之後再回來調整。</p>') + '</details>';
-  openForm('mgr', id, '評核 ' + r.name, esc(r.title || r.dept), 'mgrList', extra);
+  var extra = '<details class="card"><summary><b>' + t('{0} 的自評', esc(r.name)) + '</b></summary>' + (r.self ? '<div class="stack">' + answersHtml('self', r.self) + '</div>' : '<p class="muted">' + t('這位同仁尚未送出自評，您仍可先評分，之後再回來調整。') + '</p>') + '</details>';
+  openForm('mgr', id, t('評核 {0}', r.name), esc(r.title || r.dept), 'mgrList', extra);
   view = { name: 'form', kind: 'mgr', arg: id }; render(); window.scrollTo(0, 0);
 }
 
@@ -625,7 +642,7 @@ app.addEventListener('change', function (e) {
   if (tg.dataset.card !== undefined && tg.dataset.f && F && F.cards) { F.cards[Number(tg.dataset.card)][tg.dataset.f] = tg.value; setDraft('thanks', 'all', F.cards); }
   if (tg.id === 'peerAdd' && tg.value) return openPeer(tg.value);
   if (tg.dataset.final !== undefined) {
-    call('setFinal', { id: tg.dataset.final, grade: tg.value }).then(function () { return call('dashboard'); })
+    call('setFinal', { id: tg.dataset.final, grade: tg.value })
       .then(function (d) { DB = d; render(); toast('已更新等第'); }).catch(function (err) { toast(err.message); render(); });
   }
 });

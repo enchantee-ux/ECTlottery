@@ -76,7 +76,8 @@ const SCALE_VI = ['Cần cải thiện', 'Tạm được', 'Đạt kỳ vọng',
 const AGREE_VI = ['Rất không đồng ý', 'Không đồng ý', 'Bình thường', 'Đồng ý', 'Rất đồng ý'];
 const GROUP_VI = { '我的這一年': 'Một năm của tôi', '工作成果': 'Kết quả công việc', '專業能力與成長': 'Năng lực chuyên môn và phát triển',
   '團隊合作': 'Làm việc nhóm', '態度與品牌價值': 'Thái độ và giá trị thương hiệu', '回顧與展望': 'Nhìn lại và hướng tới',
-  '工作': 'Công việc', '團隊': 'Đội nhóm', '公司': 'Công ty', '想說的話': 'Điều muốn nói' };
+  '工作': 'Công việc', '團隊': 'Đội nhóm', '公司': 'Công ty', '想說的話': 'Điều muốn nói',
+  '成果佐證': 'Minh chứng kết quả', '評語': 'Nhận xét', '留才判斷': 'Đánh giá giữ chân nhân sự' };
 const FIELD_VI = {
   ach: ['Ba thành quả lớn nhất trong năm', 'Những việc bạn tự hào nhất và muốn được ghi nhận, hãy viết cụ thể'],
   r1: ['Hoàn thành mục tiêu', 'Hoàn thành các mục tiêu và nhiệm vụ được giao trong năm'],
@@ -109,7 +110,13 @@ const FIELD_VI = {
   happy: ['Điều vui nhất năm nay', ''],
   change: ['Một điều muốn thay đổi nhất', 'Nếu có thể thay đổi một điều ở công ty hoặc trong công việc'],
   private: ['Điều muốn nói với Giám đốc điều hành', 'Bạn có thể nói bất cứ điều gì, chỉ Giám đốc điều hành xem được'],
-  meet: ['Muốn gặp riêng Giám đốc điều hành', '']
+  meet: ['Muốn gặp riêng Giám đốc điều hành', ''],
+  kpi: ['Số liệu chính', 'Điền số liệu thực tế của năm nay, có thể để trống'],
+  strength: ['Ưu điểm và đóng góp', 'Ví dụ cụ thể đáng ghi nhận nhất trong năm'],
+  improve: ['Cần cải thiện', 'Một hoặc hai điều cần điều chỉnh nhất'],
+  develop: ['Đề xuất phát triển năm tới', 'Mục tiêu, đào tạo hoặc điều chỉnh công việc được đề xuất'],
+  risk: ['Nhận định nguy cơ nghỉ việc', 'Dựa trên quan sát hằng ngày của bạn, chỉ Giám đốc điều hành xem được'],
+  keyman: ['Nhân sự chủ chốt', 'Nếu nghỉ việc sẽ ảnh hưởng lớn đến bộ phận']
 };
 
 // 依請求語言回傳錯誤訊息；LANG 在每次 api() 呼叫時設定
@@ -231,7 +238,11 @@ function api(action, payloadJson) {
     const handlers = { requestCode: requestCode_, verifyCode: verifyCode_, logout: logout_,
       boot: boot_, save: save_, assign: assign_, dashboard: dashboard_, setFinal: setFinal_ };
     if (!handlers[action]) throw new Error('不支援的操作');
-    return JSON.stringify({ ok: true, data: handlers[action](p) });
+    let data = handlers[action](p);
+    // 寫入後直接回傳最新畫面資料，省掉一次往返
+    if (action === 'save' || action === 'assign') data = boot_(p);
+    if (action === 'setFinal') data = dashboard_(p);
+    return JSON.stringify({ ok: true, data: data });
   } catch (err) {
     return JSON.stringify({ ok: false, error: String((err && err.message) || err), code: (err && err.code) || '' });
   }
@@ -649,11 +660,11 @@ function save_(p) {
     if (form === 'self') {
       if (!me.rated) throw err_('您本年度不需要填寫自評', 'Năm nay bạn không cần tự đánh giá.');
     } else if (form === 'voice') {
-      if (me.isCEO) throw new Error('執行長不需要填寫心聲問卷');
+      if (me.isCEO) throw err_('執行長不需要填寫心聲問卷', 'Giám đốc điều hành không cần làm khảo sát này.');
     } else {
       target = ctx.byId[String(p.target)];
       if (!target || target.id === me.id || !target.rated) throw err_('評核對象不正確', 'Người được đánh giá không hợp lệ.');
-      if (form === 'mgr' && target.mgrId !== me.id) throw new Error('只能評核您的直屬同仁');
+      if (form === 'mgr' && target.mgrId !== me.id) throw err_('只能評核您的直屬同仁', 'Bạn chỉ có thể đánh giá nhân viên trực thuộc.');
       if (form === 'peer') {
         if (!canPeer_(ctx, me)) throw err_('您本年度不需要填寫同儕回饋', 'Năm nay bạn không cần nhận xét đồng nghiệp.');
         const assigned = target.raterIds.indexOf(me.id) >= 0;
@@ -685,20 +696,20 @@ function assign_(p) {
     const me = auth_(ctx, p.token);
     if (!yes_(ctx.settings['開放填寫'])) throw err_('本年度評核已截止，無法再修改', 'Đợt đánh giá năm nay đã kết thúc, không thể chỉnh sửa.');
     const target = ctx.byId[String(p.target)];
-    if (!target || target.mgrId !== me.id || !target.rated) throw new Error('只能為您的直屬同仁指定同儕評核人');
+    if (!target || target.mgrId !== me.id || !target.rated) throw err_('只能為您的直屬同仁指定同儕評核人', 'Bạn chỉ có thể chỉ định cho nhân viên trực thuộc.');
     const pool = peerPool_(ctx, target).map(x => x.id);
     const ids = (Array.isArray(p.raters) ? p.raters : []).map(String)
       .filter((id, i, a) => pool.indexOf(id) >= 0 && a.indexOf(id) === i);
     const need = needRaters_(ctx, target);
-    if (ids.length < need) throw new Error('請至少指定 ' + need + ' 位同儕評核人');
-    if (ids.length > MAX_RATERS) throw new Error('最多指定 ' + MAX_RATERS + ' 位同儕評核人');
+    if (ids.length < need) throw err_('請至少指定 ' + need + ' 位同儕評核人', 'Vui lòng chỉ định ít nhất ' + need + ' người.');
+    if (ids.length > MAX_RATERS) throw err_('最多指定 ' + MAX_RATERS + ' 位同儕評核人', 'Chỉ định tối đa ' + MAX_RATERS + ' người.');
     const poolPeople = peerPool_(ctx, target);
     const chosen = ids.map(id => ctx.byId[id]);
     const perDept = {};
     chosen.forEach(x => { perDept[x.dept] = (perDept[x.dept] || 0) + 1; });
-    if (Object.keys(perDept).some(d => perDept[d] > MAX_PER_DEPT)) throw new Error('同一個部門最多指定 ' + MAX_PER_DEPT + ' 位');
-    if (poolPeople.some(x => x.dept === target.dept) && !chosen.some(x => x.dept === target.dept)) throw new Error('請至少指定 1 位同部門的同事');
-    if (poolPeople.some(x => x.dept !== target.dept) && !chosen.some(x => x.dept !== target.dept)) throw new Error('請至少指定 1 位其他部門的同事');
+    if (Object.keys(perDept).some(d => perDept[d] > MAX_PER_DEPT)) throw err_('同一個部門最多指定 ' + MAX_PER_DEPT + ' 位', 'Mỗi bộ phận tối đa ' + MAX_PER_DEPT + ' người.');
+    if (poolPeople.some(x => x.dept === target.dept) && !chosen.some(x => x.dept === target.dept)) throw err_('請至少指定 1 位同部門的同事', 'Vui lòng chỉ định ít nhất 1 đồng nghiệp cùng bộ phận.');
+    if (poolPeople.some(x => x.dept !== target.dept) && !chosen.some(x => x.dept !== target.dept)) throw err_('請至少指定 1 位其他部門的同事', 'Vui lòng chỉ định ít nhất 1 đồng nghiệp khác bộ phận.');
     const sh = ss_().getSheetByName(SHEETS.roster);
     const col = headerOf_(sh).indexOf('同儕評核人') + 1;
     const row = readTable_(SHEETS.roster).filter(r => String(r['編號']).trim() === target.id)[0];

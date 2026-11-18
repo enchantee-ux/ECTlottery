@@ -143,10 +143,38 @@ async function ui(outDir) {
   // 越南文
   await page.click('[data-lang="vi"]'); await page.waitForSelector('text=Tự đánh giá'); await shot('07-home-vi');
   await page.click('[data-go="voice"]'); await page.waitForSelector('text=Mong muốn gắn bó'); await shot('08-voice-vi'); await noOverflow();
+  const scan = async where => { const left = await page.evaluate(() => { const c = document.getElementById('app').cloneNode(true);
+    c.querySelectorAll('h1, b, .who, option, optgroup, [data-lang], .quote, textarea').forEach(e => e.remove());
+    return (c.innerText.replace(/行銷|設計|生產|銷售|管理/g, '').match(/[\u4e00-\u9fff]+/g) || []).join(' '); }); assert.strictEqual(left, '', where); };
+  await scan('心聲');
+  await page.click('[data-go="home"]'); await scan('首頁');
+  await page.click('[data-go="self"]'); await scan('自評'); await page.click('[data-go="home"]');
+  await page.click('[data-go="peerList"]'); await scan('同儕清單');
+  await page.locator('[data-peer]').first().click(); await scan('同儕表單'); await page.click('[data-go="peerList"]'); await page.click('[data-go="home"]');
+  await page.click('[data-go="thanks"]'); await scan('感謝卡');
+  assert(!/[\u4e00-\u9fff]/.test(await page.locator('#tk_tx0').getAttribute('placeholder')), '感謝卡提示文字');
   await page.click('[data-go="home"]'); await page.click('[data-lang="zh"]');
   // 主管評
   await page.evaluate(tk => localStorage.setItem('pr:session', tk), tokens.E001);
   await page.goto('http://localhost:8766/');
+  // 主管畫面的越南文：切換後不應殘留中文介面文字（姓名、部門、職稱是資料，不算）
+  await page.waitForSelector('.task'); await page.click('[data-lang="vi"]');
+  const cjkLeft = async () => page.evaluate(() => {
+    const c = document.getElementById('app').cloneNode(true);
+    c.querySelectorAll('h1, b, h3, .chip, .who, option, optgroup, [data-lang], .quote').forEach(e => e.remove());
+    return (c.innerText.match(/[\u4e00-\u9fff]+/g) || []).join(' ');
+  });
+  assert.strictEqual(await cjkLeft(), '', '首頁');
+  await page.click('[data-go="assignList"]'); assert.strictEqual(await cjkLeft(), '', '指定同儕清單');
+  await page.locator('[data-assign]').first().click(); await shot('06c-assign-vi'); assert.strictEqual(await cjkLeft(), '', '指定同儕');
+  await page.click('[data-go="assignList"]'); await page.click('[data-go="home"]'); await page.click('[data-go="mgrList"]');
+  assert.strictEqual(await cjkLeft(), '', '主管評清單');
+  await page.locator('[data-report]').first().click();
+  const left = await page.evaluate(() => { const c = document.getElementById('app').cloneNode(true);
+    c.querySelectorAll('details, label, [data-lang], h1, .muted:not(.q .muted)').forEach(e => e.remove());
+    return (c.innerText.match(/[\u4e00-\u9fff]+/g) || []).join(' '); });
+  assert.strictEqual(left, '', '主管評表單');
+  await page.click('[data-go="mgrList"]'); await page.click('[data-go="home"]'); await page.click('[data-lang="zh"]');
   await page.waitForSelector('.task'); await page.click('[data-go="assignList"]');
   await page.locator('[data-assign]').first().click();
   for (let i = 0; i < 3; i++) await page.locator('[data-pick]').nth(i).click();
