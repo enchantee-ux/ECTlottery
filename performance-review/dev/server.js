@@ -5,7 +5,7 @@ const path = require('path');
 const { seed } = require('./seed');
 
 function start(port, opts) {
-  const { be, tokens, call, lastCode } = seed(opts);
+  const { be, tokens, call, lastCode, assignAll } = seed(opts);
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://x');
     if (req.method === 'POST' && url.pathname === '/api') {
@@ -22,7 +22,7 @@ function start(port, opts) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.end(html);
   });
-  return new Promise(resolve => server.listen(port, () => resolve({ server, be, tokens, call, lastCode })));
+  return new Promise(resolve => server.listen(port, () => resolve({ server, be, tokens, call, lastCode, assignAll })));
 }
 
 module.exports = { start };

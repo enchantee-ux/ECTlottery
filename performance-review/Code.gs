@@ -201,7 +201,7 @@ function formHeaders_(form) {
 const THANKS_HEADERS = KEY_HEADERS.concat(['標籤', '內容']);
 const CALIB_HEADERS = ['年度', '編號', '姓名', '最終等第', '備註', '時間'];
 const RESULT_HEADERS = ['年度', '編號', '姓名', '部門', '主管評分', '同儕評分', '同儕人數', '自評分', '總分',
-  '建議等第', '最終等第', '年終月數', '關懷燈號', '關懷原因'];
+  '建議等第', '最終等第', '年終月數', '在職比例', '折算月數', '關懷燈號', '關懷原因'];
 
 /* ───────────── 試算表選單與初始化 ───────────── */
 
@@ -243,7 +243,7 @@ function writeResults() {
     .map(r => RESULT_HEADERS.map(h => r[h]));
   const rows = res.people.filter(p => p.rated).map(p => [ctx.year, p.id, p.name, p.dept,
     nz_(p.score.mgr), nz_(p.score.peer), p.score.peerN, nz_(p.score.self), nz_(p.score.total),
-    p.suggested || '', p.final || '', p.months === null ? '' : p.months,
+    p.suggested || '', p.final || '', p.months === null ? '' : p.months, p.ratio, p.proMonths === null ? '' : p.proMonths,
     { red: '紅', yellow: '黃', green: '綠' }[p.light], p.flags.map(f => f.text).join('、')]);
   sh.clearContents();
   const all = [RESULT_HEADERS].concat(keep).concat(rows.map(r => r.map(safe_)));
@@ -523,7 +523,7 @@ function ctx_() {
     else p.rated = !p._join || monthsBetween_(p._join, base) >= minMonths;
   });
 
-  const ctx = { settings: settings, year: year, people: people, byId: byId };
+  const ctx = { settings: settings, year: year, people: people, byId: byId, base: base };
   ['self', 'mgr', 'peer', 'voice'].forEach(f => {
     ctx[f] = readTable_(FORMS[f].sheet).filter(r => String(r['年度']).trim() === year).map(r => ({
       from: String(r['填寫人編號']).trim(), to: String(r['對象編號']).trim(), a: rowToAnswers_(f, r)
@@ -579,6 +579,11 @@ function canPeer_(ctx, me) { return !me.isCEO && (me.rated || assignedTo_(ctx, m
 function peerPool_(ctx, me) {
   return ctx.people.filter(x => x.rated && x.id !== me.id && x.id !== me.mgrId && x.mgrId !== me.id);
 }
+// 還沒為所有直屬同仁指定完同儕評核人的主管（含執行長）。全部指定完，同儕回饋才開放
+function assignPending_(ctx) {
+  if (!ctx._pending) ctx._pending = ctx.people.filter(m => reportsOf_(ctx, m).some(r => r.raterIds.length < needRaters_(ctx, r)));
+  return ctx._pending;
+}
 function needRaters_(ctx, p) { return Math.min(num_(ctx.settings['同儕最少人數'], 3), peerPool_(ctx, p).length); }
 function minPeerGive_(ctx, me) {
   if (!me.rated) return 0;
@@ -596,6 +601,7 @@ function tasks_(ctx, me) {
     const done = id => ctx.peer.some(r => r.from === me.id && r.to === id);
     const given = ctx.peer.filter(r => r.from === me.id).length, min = minPeerGive_(ctx, me);
     t.peer = (need.length || min) ? st(need.every(p => done(p.id)) && given >= min) : (given ? 'done' : 'optional');
+    if (assignPending_(ctx).length) t.peer = 'wait';
   }
   const minThanks = num_(ctx.settings['感謝卡最少張數'], 3);
   t.thanks = st(ctx.thanks.filter(r => r.from === me.id).length >= Math.min(minThanks, ctx.people.length - 1));
@@ -634,7 +640,7 @@ function boot_(p) {
     cfg: {
       year: ctx.year, open: yes_(s['開放填寫']), deadline: dateText_(s['截止日']),
       minThanks: Math.min(num_(s['感謝卡最少張數'], 3), ctx.people.length - 1), tags: THANKS_TAGS,
-      minPeers: minPeerGive_(ctx, me),
+      minPeers: minPeerGive_(ctx, me), assignPending: assignPending_(ctx).length,
       weights: { mgr: num_(s['來源_主管'], 60), peer: num_(s['來源_同儕'], 25), self: num_(s['來源_自評'], 15) }
     },
     forms: clientForms_(),
@@ -756,6 +762,7 @@ function save_(p) {
       if (form === 'mgr' && target.mgrId !== me.id) throw err_('只能評核您的直屬同仁', 'Bạn chỉ có thể đánh giá nhân viên trực thuộc.');
       if (form === 'peer') {
         if (!canPeer_(ctx, me)) throw err_('您本年度不需要填寫同儕回饋', 'Năm nay bạn không cần nhận xét đồng nghiệp.');
+        if (assignPending_(ctx).length) throw err_('主管還在指定同儕回饋的對象，全部完成後才會開放', 'Các quản lý đang chỉ định người nhận xét. Mục này sẽ mở khi tất cả hoàn thành.');
         const assigned = target.raterIds.indexOf(me.id) >= 0;
         if (!assigned && (target.mgrId === me.id || me.mgrId === target.id)) {
           throw err_('直屬主管與部屬之間不使用同儕回饋', 'Không dùng nhận xét đồng nghiệp giữa quản lý trực tiếp và nhân viên.');
@@ -868,6 +875,16 @@ function dimScores_(ctx, a) {
   return { dims: dims, total: wsum ? sum / wsum : null };
 }
 
+// 在職比例：評核年度內的在職天數 ÷ 全年天數（算到評核基準日）。沒有到職日視為整年
+function serviceRatio_(ctx, person) {
+  const y = Number(ctx.year), start = new Date(y, 0, 1), end = ctx.base;
+  const day = 86400000, whole = Math.round((end - start) / day) + 1;
+  if (!person._join) return 1;
+  const from = person._join > start ? person._join : start;
+  const days = Math.round((end - from) / day) + 1;
+  return Math.max(0, Math.min(1, Math.round(days / whole * 100) / 100));
+}
+
 function computeResults_(ctx) {
   const s = ctx.settings;
   const minPeers = num_(s['同儕最少人數'], 3);
@@ -909,7 +926,8 @@ function computeResults_(ctx) {
       peers: peerRows.map(r => ({ from: ctx.byId[r.from].name, dept: ctx.byId[r.from].dept, a: r.a })),
       thanksIn: ctx.thanks.filter(r => r.to === p.id).map(r => ({
         from: ctx.byId[r.from].name, dept: ctx.byId[r.from].dept, tag: r.tag, text: r.text })),
-      thanksOut: ctx.thanks.filter(r => r.from === p.id).length
+      thanksOut: ctx.thanks.filter(r => r.from === p.id).length,
+      ratio: serviceRatio_(ctx, p), joined: p._join ? dateText_(p._join) : ''
     };
   });
 
@@ -935,6 +953,7 @@ function computeResults_(ctx) {
     p.calibNote = c ? c.note : '';
     const m = p.final ? s['月數_' + p.final] : '';
     p.months = num_(m, null);
+    p.proMonths = p.months === null ? null : Math.round(p.months * p.ratio * 100) / 100;
     if (p.final) dist[p.final]++;
     const f = flags_(p, totalThanks, ctx.people.length);
     p.flags = f;
@@ -1005,6 +1024,7 @@ function dashboard_(p) {
   return {
     cfg: { year: ctx.year, open: yes_(s['開放填寫']), deadline: dateText_(s['截止日']) },
     forms: clientForms_(), dims: DIMENSIONS.map(d => ({ key: d.key, name: d.name })),
+    assignPending: assignPending_(ctx).map(m => m.name),
     people: res.people, dist: res.dist, caps: res.caps, ratedCount: res.ratedCount, mood: mood, upward: upward_(ctx),
     months: { S: num_(s['月數_S'], null), A: num_(s['月數_A'], null), B: num_(s['月數_B'], null), C: num_(s['月數_C'], null) }
   };

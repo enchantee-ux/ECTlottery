@@ -84,6 +84,25 @@ function logic() {
   assert(vs.data[0].indexOf('薪資福利') >= 0, '補上欄名');
   const care = call('dashboard', { token: tokens.E000 }).data.people.find(p => p.id === 'E002');
   assert.strictEqual(care.voice.v10, 2); assert(care.flags.some(f => f.text.includes('薪資福利')));
+  // 在職比例與折算月數
+  const d2 = call('dashboard', { token: tokens.E000 }).data;
+  const newbie = d2.people.find(p => p.id === 'E016'), old = d2.people.find(p => p.id === 'E002');
+  assert.strictEqual(newbie.ratio, 0.17, '11/1 到職：61/365'); assert.strictEqual(newbie.proMonths, null);
+  assert.strictEqual(old.ratio, 1); assert.strictEqual(old.proMonths, old.months);
+  be.sheets['名冊'].data.find(r => r[0] === 'E003')[5] = '2026-07-01'; be.expireCache();
+  const half = call('dashboard', { token: tokens.E000 }).data.people.find(p => p.id === 'E003');
+  assert.strictEqual(half.ratio, 0.5, '7/1 到職：184/365'); assert.strictEqual(half.proMonths, Math.round(half.months * 0.5 * 100) / 100);
+  be.sheets['名冊'].data.find(r => r[0] === 'E003')[5] = '2022-03-15'; be.expireCache();
+  // 主管未指定完之前，同儕回饋不開放
+  { const s2 = seed({ fill: false });
+    const w = s2.call('boot', { token: s2.tokens.E002 }).data;
+    assert.strictEqual(w.tasks.peer, 'wait'); assert.strictEqual(w.cfg.assignPending, 5);
+    assert.strictEqual(s2.call('boot', { token: s2.tokens.E016 }).data.tasks.peer, 'na', '不參加評等者不受影響');
+    assert(/指定/.test(s2.call('save', { token: s2.tokens.E002, form: 'peer', target: 'E003', answers: { p1: 4, p2: 4, p3: 4, p4: 4, praise: 'x' } }).error), '等待期間不能送出同儕回饋');
+    assert(s2.call('save', { token: s2.tokens.E002, form: 'voice', target: 'E002', answers: Object.assign({ meet: '否' }, ...['v1','v2','v3','v4','v5','v6','v7','v8','v9','v10','v11'].map(k => ({ [k]: 4 }))) }).ok, '其他項目照常可填');
+    assert.deepStrictEqual(s2.call('dashboard', { token: s2.tokens.E000 }).data.assignPending.length, 5);
+    s2.assignAll();
+    assert.strictEqual(s2.call('boot', { token: s2.tokens.E002 }).data.tasks.peer, 'todo'); assert.strictEqual(s2.call('dashboard', { token: s2.tokens.E000 }).data.assignPending.length, 0); }
   // 給主管的回饋：匿名
   const upSheet = be.sheets['主管回饋'], doneSheet = be.sheets['主管回饋已填'];
   assert(!upSheet.data[0].some(h => /填寫人|時間/.test(h)), '內容表沒有填寫人與時間欄');
@@ -122,7 +141,7 @@ function logic() {
 
 async function ui(outDir) {
   const { chromium } = require('playwright');
-  const { server, tokens, call, lastCode } = await start(8766, { fill: false });
+  const { server, tokens, call, lastCode, assignAll } = await start(8766, { fill: false });
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
   const page = await ctx.newPage();
@@ -147,7 +166,12 @@ async function ui(outDir) {
   await page.click('[data-go="home"]');
   await page.waitForSelector('.task'); await shot('01-home'); await noOverflow();
   await page.click('[data-go="guide"]'); await page.waitForSelector('text=常見問題'); await shot('01b-guide'); await noOverflow(); await page.click('[data-go="home"]');
-  assert.strictEqual(await page.locator('[data-go="peerList"] .pill').innerText(), '選填');
+  assert.strictEqual(await page.locator('[data-go="peerList"] .pill').innerText(), '等待開放');
+  await page.click('[data-go="peerList"]'); await page.waitForSelector('text=這一項還沒開放'); await shot('01c-peer-wait'); await noOverflow();
+  assert.strictEqual(await page.locator('[data-peer], #peerAdd').count(), 0);
+  await page.click('[data-go="home"]');
+  assignAll(); await page.reload(); await page.waitForSelector('.task');
+  assert.strictEqual(await page.locator('[data-go="peerList"] .pill').innerText(), '待填寫');
   await page.click('[data-go="self"]');
   await page.click('[data-submit]');
   assert(await page.locator('.q.miss').count() > 0, '未填完會標示必填');
@@ -167,11 +191,14 @@ async function ui(outDir) {
   await page.click('[data-go="up"]'); await page.waitForSelector('text=你已經送出了'); await page.click('[data-go="home"]');
   // 同儕
   await page.click('[data-go="peerList"]'); await shot('03-peers');
-  for (let i = 0; i < 3; i++) {
-    await page.selectOption('#peerAdd', { index: 1 }); await fillScores();
-    await page.fill('#f_praise', '很可靠');
+  const assignedN = await page.locator('[data-peer]').count();
+  assert(assignedN >= 1, '主管指定完後看得到對象');
+  for (let i = 0; i < assignedN; i++) {
+    await page.locator('[data-peer]').nth(i).click(); await fillScores(); await page.fill('#f_praise', '很可靠');
     await page.click('[data-submit]'); await page.waitForSelector('#peerAdd');
   }
+  await page.selectOption('#peerAdd', { index: 1 }); await fillScores(); await page.fill('#f_praise', '很可靠');
+  await page.click('[data-submit]'); await page.waitForSelector('#peerAdd');
   await shot('03b-peers-done');
   await page.click('[data-go="home"]');
   // 感謝卡
@@ -183,7 +210,7 @@ async function ui(outDir) {
   await shot('05-home-progress');
   const me = call('boot', { token: tokens.E002 }).data;
   assert.strictEqual(me.tasks.self, 'done'); assert.strictEqual(me.tasks.voice, 'done'); assert.strictEqual(me.tasks.thanks, 'done');
-  assert.strictEqual(me.peers.filter(p => p.answers).length, 3); assert.strictEqual(me.tasks.peer, 'done');
+  assert.strictEqual(me.peers.filter(p => p.answers).length, me.peers.filter(p => p.assigned).length + 1); assert.strictEqual(me.tasks.peer, 'done');
 
   // 越南文
   await page.click('[data-lang="vi"]'); await page.waitForSelector('text=Tự đánh giá'); await shot('07-home-vi');
@@ -225,11 +252,12 @@ async function ui(outDir) {
   await page.click('[data-go="mgrList"]'); await page.click('[data-go="home"]'); await page.click('[data-lang="zh"]');
   await page.waitForSelector('.task'); await page.click('[data-go="assignList"]');
   await page.locator('[data-assign]').first().click();
+  while (await page.locator('[data-pick].on').count()) await page.locator('[data-pick].on').first().click();
   for (let i = 0; i < 3; i++) await page.locator('[data-pick]').nth(i).click();
   await shot('06a-assign'); await noOverflow();
   await page.click('[data-submit]'); await page.waitForSelector('[data-assign]');
   assert.strictEqual(call('boot', { token: tokens.E001 }).data.reports[0].raters.length, 3);
-  assert.strictEqual(call('boot', { token: tokens.E003 }).data.peers.filter(p => p.assigned).length, 1, '被指定的人會看到對象');
+  assert.strictEqual(call('boot', { token: tokens.E003 }).data.peers.filter(p => p.assigned).length >= 1, true, '被指定的人會看到對象');
   await page.click('[data-go="home"]'); await page.click('[data-go="mgrList"]');
   await page.locator('[data-report]').first().click(); await fillScores();
   await page.fill('#f_kpi', '營收成長 12%'); await page.fill('#f_strength', '主動補位'); await page.fill('#f_summary', '穩定可靠');

@@ -88,7 +88,7 @@ function seed({ fill = true } = {}) {
       r1: 5, r2: 5 - (i % 2), r3: 4, s1: 5, s2: 4, t1: 4 + (i % 2), t2: 4, a1: 5, a2: 5,
       kpi: '', strength: '帶領部門達成年度目標', summary: '帶人帶心，部門績效亮眼', improve: '', develop: '', risk: '低', keyman: '是' } })));
   }
-  return { be, tokens, call, lastCode };
+  return { be, tokens, call, lastCode, assignAll };
 }
 
 module.exports = { seed };
