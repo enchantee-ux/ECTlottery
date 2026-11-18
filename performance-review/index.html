@@ -8,9 +8,11 @@
 <style>
 /* 版面：單欄手機優先，最寬 640px；首頁是任務清單，問卷一題一塊 */
 :root {
-  --bg: #F6F4F7; --card: #FFFFFF; --ink: #2B2233; --muted: #6E6478; --line: #E4DEE8;
-  --accent: #8A3B5C; --accent-soft: #F3E6EC; --gold: #A8842F;
-  --good: #2F7D5B; --good-soft: #E3F1EA; --warn: #A66A00; --warn-soft: #FBF0D9; --bad: #B3362F; --bad-soft: #F9E4E2;
+  /* 配色與節慶禮盒專案管理系統一致：森林綠（霧綠底 #F1F5EF／深綠 #234A36／木頭棕 #9A6332） */
+  --bg: #F1F5EF; --card: #FCFDFB; --ink: #1F2D24; --muted: #5E6F62; --line: #D2DECF;
+  --accent: #234A36; --accent-soft: #E6EEE4; --wood: #9A6332; --wood-soft: #F6EBDD;
+  --good: #2F7A4F; --good-soft: #E3F0E6; --warn: #A8650F; --warn-soft: #FAEEDA; --bad: #B23A2E; --bad-soft: #F8E3E0;
+  --info: #3D6670; --info-soft: #E1ECEC;
   --font: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
   --display: "Cormorant Garamond", Georgia, serif;
 }
@@ -41,17 +43,17 @@ button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-
 .task .grow { flex: 1; min-width: 0; }
 .pill { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 99px; white-space: nowrap; }
 .pill.done { background: var(--good-soft); color: var(--good); }
-.pill.todo { background: var(--accent-soft); color: var(--accent); }
-.pill.wait { background: var(--warn-soft); color: var(--warn); }
+.pill.todo { background: var(--wood-soft); color: var(--wood); }
+.pill.wait { background: var(--card); color: var(--muted); border: 1px dashed var(--muted); }
 .pill.optional, .pill.na { background: var(--bg); color: var(--muted); }
 .pill.red { background: var(--bad-soft); color: var(--bad); }
 .pill.yellow { background: var(--warn-soft); color: var(--warn); }
 .pill.green { background: var(--good-soft); color: var(--good); }
 .notice { border-radius: 12px; padding: 12px 14px; font-size: 14px; background: var(--warn-soft); color: var(--warn); }
 .notice.info { background: var(--accent-soft); color: var(--accent); }
-.vis { border: 1px solid var(--good); background: var(--good-soft); color: var(--good); border-radius: 12px; padding: 10px 14px; font-size: 14px; }
+.vis { border: 1px solid var(--info); background: var(--info-soft); color: var(--info); border-radius: 12px; padding: 10px 14px; font-size: 14px; }
 .vis b { margin-right: 4px; }
-.vistag { display: block; margin-top: 4px; font-size: 13px; font-weight: 500; color: var(--good); }
+.vistag { display: block; margin-top: 4px; font-size: 13px; font-weight: 500; color: var(--info); }
 .q { display: flex; flex-direction: column; gap: 8px; padding: 14px 0; border-top: 1px solid var(--line); }
 .q:first-of-type { border-top: 0; padding-top: 0; }
 .q.miss .qlabel { color: var(--bad); }
