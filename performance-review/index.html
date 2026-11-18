@@ -397,21 +397,39 @@ function viewAssignList() {
 }
 function viewAssign() {
   var r = byId(D.reports, view.arg);
-  if (!F) { F = { sel: {} }; r.raters.forEach(function (id) { F.sel[id] = true; }); }
+  if (!F) { F = { sel: {} }; r.raters.forEach(function (id) { if (byId(r.pool, id)) F.sel[id] = true; }); }
   var depts = {}; r.pool.forEach(function (p) { (depts[p.dept] = depts[p.dept] || []).push(p); });
-  var n = Object.keys(F.sel).length;
-  var h = '<button class="back" data-go="assignList">‹ 返回</button><div><h1>' + esc(r.name) + ' 的同儕評核人</h1><p class="muted">請選 ' + r.need + ' 到 6 位，目前已選 <b id="selN">' + n + '</b> 位。</p></div>';
-  h += Object.keys(depts).map(function (d) {
-    return '<div class="card"><h3>' + esc(d || '其他') + '</h3><div class="wrap">' + depts[d].map(function (p) {
-      return '<button type="button" class="chip ' + (F.sel[p.id] ? 'on' : '') + '" data-pick="' + esc(p.id) + '">' + esc(p.name) + '</button>';
+  var names = Object.keys(depts).sort(function (x, y) { return (y === r.dept) - (x === r.dept); });
+  var h = '<button class="back" data-go="assignList">‹ 返回</button><div><h1>' + esc(r.name) + ' 的同儕評核人</h1><p class="muted">請選今年和他實際合作過的同事，' + r.need + ' 到 ' + r.max +
+    ' 位，目前已選 <b id="selN">' + Object.keys(F.sel).length + '</b> 位。</p></div>' +
+    '<div class="notice info">至少 1 位同部門、至少 1 位其他部門，同一部門最多 ' + r.maxPerDept + ' 位。名字旁的數字是這位同事已經要評幾個人，請盡量分散。</div>';
+  h += names.map(function (d) {
+    return '<div class="card"><h3>' + esc(d || '其他') + (d === r.dept ? '（同部門）' : '') + '</h3><div class="wrap">' + depts[d].map(function (p) {
+      return '<button type="button" class="chip ' + (F.sel[p.id] ? 'on' : '') + '" data-pick="' + esc(p.id) + '">' + esc(p.name) + ' <span class="num small">' + p.load + '</span></button>';
     }).join('') + '</div></div>';
   }).join('');
   if (D.cfg.open) h += '<div class="sticky"><button class="btn" data-submit="assign">儲存</button></div>';
   return h;
 }
+function pickRater(el) {
+  var r = byId(D.reports, view.arg), id = el.dataset.pick, p = byId(r.pool, id);
+  if (F.sel[id]) delete F.sel[id];
+  else {
+    var ids = Object.keys(F.sel);
+    if (ids.length >= r.max) return toast('最多選 ' + r.max + ' 位');
+    if (ids.filter(function (x) { return byId(r.pool, x).dept === p.dept; }).length >= r.maxPerDept) return toast('同一個部門最多選 ' + r.maxPerDept + ' 位');
+    F.sel[id] = true;
+    if (p.load >= r.loadWarn) toast(p.name + ' 已經要評 ' + p.load + ' 個人，建議換一位分散負擔');
+  }
+  el.classList.toggle('on', !!F.sel[id]);
+  document.getElementById('selN').textContent = Object.keys(F.sel).length;
+}
 function submitAssign() {
   var r = byId(D.reports, view.arg), ids = Object.keys(F.sel);
+  var isSame = function (x) { return x.dept === r.dept; }, picked = ids.map(function (id) { return byId(r.pool, id); });
   if (ids.length < r.need) return toast('請至少選 ' + r.need + ' 位');
+  if (r.pool.some(isSame) && !picked.some(isSame)) return toast('請至少選 1 位同部門的同事');
+  if (r.pool.some(function (x) { return !isSame(x); }) && picked.every(isSame)) return toast('請至少選 1 位其他部門的同事');
   send({ target: r.id, raters: ids }, function () { go('assignList'); }, 'assign');
 }
 
@@ -568,12 +586,7 @@ app.addEventListener('click', function (e) {
   if ((el = closest(tg, 'data-peer'))) return openPeer(el.dataset.peer);
   if ((el = closest(tg, 'data-report'))) return openReport(el.dataset.report);
   if ((el = closest(tg, 'data-assign'))) return go('assign', el.dataset.assign);
-  if ((el = closest(tg, 'data-pick'))) {
-    if (!D.cfg.open) return;
-    var pid = el.dataset.pick;
-    if (F.sel[pid]) delete F.sel[pid]; else if (Object.keys(F.sel).length < 6) F.sel[pid] = true; else return toast('最多選 6 位');
-    el.classList.toggle('on', !!F.sel[pid]); document.getElementById('selN').textContent = Object.keys(F.sel).length; return;
-  }
+  if ((el = closest(tg, 'data-pick'))) { if (D.cfg.open) pickRater(el); return; }
   if ((el = closest(tg, 'data-person'))) return go('person', el.dataset.person);
   if ((el = closest(tg, 'data-tab'))) { dashTab = el.dataset.tab; return render(); }
   if ((el = closest(tg, 'data-delpeer'))) return send({ form: 'peer', target: el.dataset.delpeer, answers: null }, function () { go('peerList'); });

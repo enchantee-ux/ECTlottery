@@ -552,7 +552,9 @@ function boot_(p) {
     reports: reps.map(r => Object.assign(brief_(r), {
       self: (ctx.self.filter(x => x.from === r.id)[0] || {}).a || null,
       answers: one(ctx.mgr, r.id), kpis: ctx.kpis[r.dept] || [],
-      raters: r.raterIds, need: needRaters_(ctx, r), pool: peerPool_(ctx, r).map(brief_)
+      raters: r.raterIds, need: needRaters_(ctx, r), max: MAX_RATERS, maxPerDept: MAX_PER_DEPT, loadWarn: RATER_LOAD_WARN,
+      pool: peerPool_(ctx, r).map(x => Object.assign(brief_(x), {
+        load: ctx.people.filter(o => o.id !== r.id && o.raterIds.indexOf(x.id) >= 0).length }))
     })),
     received: yes_(s['公開感謝卡']) ? ctx.thanks.filter(r => r.to === me.id).map(r => ({
       from: ctx.byId[r.from].name, dept: ctx.byId[r.from].dept, tag: r.tag, text: r.text })) : null
@@ -673,6 +675,8 @@ function save_(p) {
   }
 }
 
+const MAX_RATERS = 5, MAX_PER_DEPT = 2, RATER_LOAD_WARN = 8;
+
 function assign_(p) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
@@ -687,7 +691,14 @@ function assign_(p) {
       .filter((id, i, a) => pool.indexOf(id) >= 0 && a.indexOf(id) === i);
     const need = needRaters_(ctx, target);
     if (ids.length < need) throw new Error('請至少指定 ' + need + ' 位同儕評核人');
-    if (ids.length > 6) throw new Error('最多指定 6 位同儕評核人');
+    if (ids.length > MAX_RATERS) throw new Error('最多指定 ' + MAX_RATERS + ' 位同儕評核人');
+    const poolPeople = peerPool_(ctx, target);
+    const chosen = ids.map(id => ctx.byId[id]);
+    const perDept = {};
+    chosen.forEach(x => { perDept[x.dept] = (perDept[x.dept] || 0) + 1; });
+    if (Object.keys(perDept).some(d => perDept[d] > MAX_PER_DEPT)) throw new Error('同一個部門最多指定 ' + MAX_PER_DEPT + ' 位');
+    if (poolPeople.some(x => x.dept === target.dept) && !chosen.some(x => x.dept === target.dept)) throw new Error('請至少指定 1 位同部門的同事');
+    if (poolPeople.some(x => x.dept !== target.dept) && !chosen.some(x => x.dept !== target.dept)) throw new Error('請至少指定 1 位其他部門的同事');
     const sh = ss_().getSheetByName(SHEETS.roster);
     const col = headerOf_(sh).indexOf('同儕評核人') + 1;
     const row = readTable_(SHEETS.roster).filter(r => String(r['編號']).trim() === target.id)[0];

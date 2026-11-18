@@ -46,6 +46,12 @@ function logic() {
   assert(!call('assign', { token: tokens.E002, target: 'E003', raters: ['E004'] }).ok, '非主管不能指定');
   assert(!call('assign', { token: tokens.E001, target: 'E002', raters: ['E003'] }).ok, '不足三位');
   assert(!call('assign', { token: tokens.E001, target: 'E002', raters: ['E001', 'E002', 'E000'] }).ok, '不能指定本人、主管或執行長');
+  assert(!call('assign', { token: tokens.E001, target: 'E002', raters: ['E005', 'E006', 'E009'] }).ok, '至少一位同部門');
+  assert(!call('assign', { token: tokens.E001, target: 'E002', raters: ['E003', 'E005', 'E006', 'E007'] }).ok, '同部門最多兩位');
+  assert(!call('assign', { token: tokens.E001, target: 'E002', raters: ['E003', 'E004', 'E005', 'E006', 'E009', 'E010'] }).ok, '最多五位');
+  assert(call('assign', { token: tokens.E001, target: 'E002', raters: ['E003', 'E004', 'E005', 'E009', 'E013'] }).ok);
+  const pool = call('boot', { token: tokens.E001 }).data.reports.find(r => r.id === 'E003').pool;
+  assert(pool.find(x => x.id === 'E005').load >= 1, '顯示每位同事已被指定的次數');
   const b2 = call('boot', { token: tokens.E002 }).data;
   assert.strictEqual(JSON.stringify(b2).includes('最近在考慮'), false, '同仁看不到別人的心聲');
   assert.strictEqual(b2.received, null, '感謝卡未公開前看不到');

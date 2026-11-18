@@ -37,7 +37,14 @@ function seed({ fill = true } = {}) {
   const assignAll = () => Object.keys(tokens).forEach(id => {
     const b = call('boot', { token: tokens[id] }).data;
     b.reports.forEach((r, i) => {
-      const res = call('assign', { token: tokens[id], target: r.id, raters: r.pool.slice(i, i + 3).map(x => x.id) });
+      const same = r.pool.filter(x => x.dept === r.dept).slice(0, 2), per = {};
+      const cross = r.pool.filter(x => x.dept !== r.dept);
+      const picks = same.slice();
+      for (let k = 0; picks.length < 3 && k < cross.length; k++) {
+        const c = cross[(k + i * 2) % cross.length];
+        if (picks.indexOf(c) < 0 && (per[c.dept] || 0) < 2) { picks.push(c); per[c.dept] = (per[c.dept] || 0) + 1; }
+      }
+      const res = call('assign', { token: tokens[id], target: r.id, raters: picks.map(x => x.id) });
       if (!res.ok) throw new Error(res.error);
     });
   });
