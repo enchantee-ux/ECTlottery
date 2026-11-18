@@ -146,6 +146,7 @@ async function ui(outDir) {
   await page.waitForSelector('text=為什麼今年換新的方式'); await shot('00b-intro'); await noOverflow();
   await page.click('[data-go="home"]');
   await page.waitForSelector('.task'); await shot('01-home'); await noOverflow();
+  await page.click('[data-go="guide"]'); await page.waitForSelector('text=常見問題'); await shot('01b-guide'); await noOverflow(); await page.click('[data-go="home"]');
   assert.strictEqual(await page.locator('[data-go="peerList"] .pill').innerText(), '選填');
   await page.click('[data-go="self"]');
   await page.click('[data-submit]');
@@ -193,6 +194,7 @@ async function ui(outDir) {
   await scan('心聲');
   await page.click('[data-go="home"]'); await scan('首頁');
   await page.click('[data-go="up"]'); await scan('主管回饋'); await shot('08b-up-vi'); await page.click('[data-go="home"]');
+  await page.click('[data-go="guide"]'); await scan('操作說明'); await shot('07c-guide-vi'); await noOverflow(); await page.click('[data-go="home"]');
   await page.click('[data-go="intro"]'); await scan('說明頁'); await shot('07b-intro-vi'); await page.click('[data-go="home"]');
   await page.click('[data-go="self"]'); await scan('自評'); await page.click('[data-go="home"]');
   await page.click('[data-go="peerList"]'); await scan('同儕清單');
