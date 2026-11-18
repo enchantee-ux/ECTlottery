@@ -35,6 +35,7 @@ const DEFAULT_SETTINGS = [
   ['主管回饋最少份數', 3, '某位主管收到的匿名回饋少於此份數時，儀表板不顯示內容，避免被認出是誰寫的'],
   ['同儕最少人數', 3, '主管要為每位直屬同仁指定的同儕評核人數；實際評分者少於此人數時不計同儕分數，權重併回主管評'],
   ['同儕回饋最少人數', 0, '除了主管指定的對象外，每位同仁至少還要自選幾位同事填寫同儕回饋。0 代表只需完成指定對象'],
+  ['寄件信箱', '', '驗證信的寄件地址。必須是部署帳號在 Gmail「帳戶和匯入」已驗證的寄件別名；留白或未驗證時用部署帳號寄'],
   ['登入有效天數', 30, '同仁用 Email 驗證碼登入後，幾天內不必重新登入'],
   ['感謝卡最少張數', 3, '每人至少要寫給幾位同事'],
   ['S比例上限', 10, '百分比。S 等第人數上限'],
@@ -301,13 +302,26 @@ function requestCode_(p) {
   const code = randomDigits_(6);
   cache.put('code_' + email, JSON.stringify({ code: code, tries: 0 }), 600);
   cache.put('sent_' + email, String(sent + 1), 3600);
-  MailApp.sendEmail({
-    to: email, name: '樂朗奇 績效評核',
-    subject: '樂朗奇績效評核 登入驗證碼 ' + code,
-    body: me.name + ' 您好，\n\n您的登入驗證碼是：' + code + '\n驗證碼 10 分鐘內有效，請勿提供給他人。\n\n' +
-      'Mã đăng nhập của bạn là: ' + code + '\nMã có hiệu lực trong 10 phút. Vui lòng không chia sẻ cho người khác.\n\n樂朗奇 enchantée'
-  });
+  const subject = '樂朗奇績效評核 登入驗證碼 ' + code;
+  const body = me.name + ' 您好，\n\n您的登入驗證碼是：' + code + '\n驗證碼 10 分鐘內有效，請勿提供給他人。\n\n' +
+    'Mã đăng nhập của bạn là: ' + code + '\nMã có hiệu lực trong 10 phút. Vui lòng không chia sẻ cho người khác.\n\n樂朗奇 enchantée';
+  sendMail_(ctx, email, subject, body);
   return { sent: true };
+}
+
+// 「設定」的「寄件信箱」若是部署帳號在 Gmail 已驗證的寄件別名，就用它寄；否則用部署帳號本身寄
+function sendMail_(ctx, to, subject, body) {
+  const name = '樂朗奇 績效評核';
+  const from = normEmail_(ctx.settings['寄件信箱']);
+  if (from) {
+    try {
+      if (GmailApp.getAliases().map(normEmail_).indexOf(from) >= 0) {
+        GmailApp.sendEmail(to, subject, body, { from: from, name: name });
+        return;
+      }
+    } catch (e) { /* 別名不可用時改用部署帳號寄，不讓同仁登入不了 */ }
+  }
+  MailApp.sendEmail({ to: to, name: name, subject: subject, body: body });
 }
 
 function verifyCode_(p) {

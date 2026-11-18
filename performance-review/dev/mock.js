@@ -46,7 +46,7 @@ function createBackend() {
     insertSheet: n => (sheets[n] = new Sheet(n))
   };
   let uuid = 0;
-  const cache = {}, props = {}, outbox = [];
+  const cache = {}, props = {}, outbox = [], gmail = { aliases: [], fail: false };
   const sandbox = {
     SpreadsheetApp: { getActiveSpreadsheet: () => ss },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
@@ -58,6 +58,7 @@ function createBackend() {
       getProperty: k => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = String(v); },
       deleteProperty: k => { delete props[k]; }, getProperties: () => Object.assign({}, props) }) },
     MailApp: { sendEmail: m => outbox.push(m) },
+    GmailApp: { getAliases: () => gmail.aliases.slice(), sendEmail: (to, subject, body, opts) => { if (gmail.fail) throw new Error('alias error'); outbox.push({ to, subject, body, from: opts.from, name: opts.name }); } },
     LanguageApp: { translate: text => '（譯）' + text.length + ' 字' },
     console
   };
@@ -66,7 +67,7 @@ function createBackend() {
   vm.runInContext(code + '\n;globalThis.__api = { setup, writeResults, api };', sandbox);
   // 測試直接改工作表（等同執行長手動編輯並等快取過期）後呼叫
   const expireCache = () => Object.keys(cache).filter(k => k.indexOf('T2_') === 0).forEach(k => { delete cache[k]; });
-  return { sheets, api: sandbox.__api, outbox, props, cache, expireCache };
+  return { sheets, api: sandbox.__api, outbox, props, cache, expireCache, gmail };
 }
 
 module.exports = { createBackend };

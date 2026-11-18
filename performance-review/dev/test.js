@@ -84,6 +84,14 @@ function logic() {
   assert(vs.data[0].indexOf('薪資福利') >= 0, '補上欄名');
   const care = call('dashboard', { token: tokens.E000 }).data.people.find(p => p.id === 'E002');
   assert.strictEqual(care.voice.v10, 2); assert(care.flags.some(f => f.text.includes('薪資福利')));
+  // 寄件別名
+  { const s3 = seed({ fill: false }); const set = v => { const rows = s3.be.sheets['設定'].data; const r = rows.find(x => x[0] === '寄件信箱'); r[1] = v; s3.be.expireCache(); };
+    const last = () => s3.be.outbox[s3.be.outbox.length - 1];
+    assert(s3.call('requestCode', { email: 'e003@example.com' }).ok); assert.strictEqual(last().from, undefined, '未設定時用部署帳號寄');
+    set('Hello@Example.com'); assert(s3.call('requestCode', { email: 'e004@example.com' }).ok); assert.strictEqual(last().from, undefined, '不是已驗證的別名時不使用');
+    s3.be.gmail.aliases = ['hello@example.com']; assert(s3.call('requestCode', { email: 'e005@example.com' }).ok);
+    assert.strictEqual(last().from, 'hello@example.com'); assert.strictEqual(last().to, 'e005@example.com'); assert(/\d{6}/.test(last().subject));
+    s3.be.gmail.fail = true; assert(s3.call('requestCode', { email: 'e006@example.com' }).ok, '別名寄信失敗時仍寄得出去'); assert.strictEqual(last().from, undefined); }
   // 在職比例與折算月數
   const d2 = call('dashboard', { token: tokens.E000 }).data;
   const newbie = d2.people.find(p => p.id === 'E016'), old = d2.people.find(p => p.id === 'E002');
