@@ -118,7 +118,7 @@ var VI = {
   '心聲問卷': 'Khảo sát tâm tư', '只有執行長看得到，不計入評核分數，約 3 分鐘': 'Chỉ Giám đốc điều hành xem được, không tính vào điểm đánh giá, khoảng 3 phút',
   '同儕回饋': 'Nhận xét đồng nghiệp',
   '為至少 {0} 位今年合作過的同事留下回饋，每位約 1 分鐘': 'Nhận xét cho ít nhất {0} đồng nghiệp bạn đã làm việc cùng trong năm, mỗi người khoảng 1 phút',
-  '為今年合作過的同事留下回饋，每位約 1 分鐘': 'Nhận xét cho đồng nghiệp bạn đã làm việc cùng trong năm, mỗi người khoảng 1 phút',
+  '完成主管指定的對象，也可以自己加選同事，每位約 1 分鐘': 'Hoàn thành những người quản lý chỉ định, bạn cũng có thể tự chọn thêm đồng nghiệp, mỗi người khoảng 1 phút',
   '感謝卡': 'Thiệp cảm ơn', '寫給至少 {0} 位同事，具名送出': 'Viết cho ít nhất {0} đồng nghiệp, có ghi tên người gửi',
   '主管評核': 'Đánh giá của quản lý', '評核您的直屬同仁': 'Đánh giá nhân viên trực thuộc',
   '{0}，辛苦了': '{0}, bạn đã vất vả rồi', '{0} 年度績效評核': 'Đánh giá hiệu suất năm {0}', '截止日 {0}': 'Hạn chót {0}',
@@ -174,6 +174,13 @@ var VI = {
   '截止後，主管會和你一對一談今年的回饋與明年的方向。': 'Sau hạn chót, quản lý sẽ trao đổi riêng với bạn về nhận xét năm nay và định hướng năm tới.',
   '我了解了，開始填寫': 'Tôi đã hiểu, bắt đầu',
   '給分參考：3 分代表該做的都有做到；4 分、5 分請想得出具體的例子；1 分、2 分代表明顯需要改進。': 'Gợi ý chấm điểm: 3 điểm nghĩa là đã làm được những việc cần làm; 4 và 5 điểm thì hãy nghĩ ra được ví dụ cụ thể; 1 và 2 điểm nghĩa là cần cải thiện rõ rệt.',
+  '同儕回饋分成兩種：主管指定的對象一定要填；你也可以自己加選今年合作過的同事。回饋內容只有執行長看得到，轉達時不會顯示您的姓名。': 'Nhận xét đồng nghiệp gồm hai loại: những người do quản lý chỉ định thì bắt buộc phải làm; ngoài ra bạn có thể tự chọn thêm đồng nghiệp đã làm việc cùng trong năm nay. Chỉ Giám đốc điều hành xem được nội dung, khi chuyển lời sẽ không hiển thị tên bạn.',
+  '主管指定的對象（必填）': 'Người do quản lý chỉ định (bắt buộc)',
+  '主管依今年的合作情況為你指定的同事，請全部完成。': 'Đây là những đồng nghiệp quản lý chỉ định cho bạn dựa trên công việc trong năm nay. Vui lòng hoàn thành tất cả.',
+  '主管還沒有指定，請過幾天再回來看。': 'Quản lý chưa chỉ định. Vui lòng quay lại sau vài ngày.',
+  '我想另外回饋的同事（選填）': 'Đồng nghiệp tôi muốn nhận xét thêm (tùy chọn)',
+  '今年工作上有交集、你也想給回饋的同事，可以自己加進來。不加也沒關係。': 'Bạn có thể tự thêm những đồng nghiệp đã làm việc cùng trong năm nay mà bạn muốn nhận xét. Không thêm cũng không sao.',
+  '＋ 選擇要加入的同事…': '＋ Chọn đồng nghiệp muốn thêm…',
   '是': 'Có', '否': 'Không', '低': 'Thấp', '中': 'Trung bình', '高': 'Cao',
   '最佳支援': 'Hỗ trợ tốt nhất', '專業可靠': 'Chuyên nghiệp, đáng tin', '溫暖貼心': 'Ấm áp, chu đáo', '創意點子': 'Ý tưởng sáng tạo', '使命必達': 'Luôn hoàn thành nhiệm vụ'
 };
@@ -288,7 +295,7 @@ function viewIntro() {
 var TASKS = [
   ['self', '自評', '回顧今年的成果與成長，約 8 分鐘', 'self'],
   ['voice', '心聲問卷', '只有執行長看得到，不計入評核分數，約 3 分鐘', 'voice'],
-  ['peer', '同儕回饋', '為今年合作過的同事留下回饋，每位約 1 分鐘', 'peerList'],
+  ['peer', '同儕回饋', '完成主管指定的對象，也可以自己加選同事，每位約 1 分鐘', 'peerList'],
   ['thanks', '感謝卡', '', 'thanks'],
   ['assign', '指定同儕評核人', '為每位直屬同仁指定合作對象，請在同仁開始填寫前完成', 'assignList'],
   ['mgr', '主管評核', '評核您的直屬同仁', 'mgrList']
@@ -377,16 +384,18 @@ function send(payload, after, action) {
 /* ───── 同儕回饋 ───── */
 function viewPeerList() {
   var doneN = D.peers.filter(function (p) { return p.answers; }).length;
-  var h = '<button class="back" data-go="home">' + t('‹ 返回') + '</button><div><h1>' + t('同儕回饋') + '</h1><p class="muted">' + t('只評今年實際合作過的同事。回饋內容只有執行長看得到，轉達時不會顯示您的姓名。') + '</p></div>';
-  if (D.cfg.minPeers) h += '<div class="notice info">' + t('請至少為 {0} 位同事填寫，目前已完成 {1} 位。', D.cfg.minPeers, doneN) + '</div>';
-  h += '<div class="card"><h3>' + t('我的回饋對象') + '</h3>' + (D.peers.length ? D.peers.map(function (p) {
-    return '<div class="prow"><button class="who" data-peer="' + esc(p.id) + '"><b>' + esc(p.name) + '</b> <span class="muted">' + esc(p.dept) + (p.assigned ? t('・指定') : '') + '</span></button>' +
+  var row = function (p) {
+    return '<div class="prow"><button class="who" data-peer="' + esc(p.id) + '"><b>' + esc(p.name) + '</b> <span class="muted">' + esc(p.dept) + '</span></button>' +
       pill(p.answers ? 'done' : (p.assigned ? 'todo' : 'optional')) + '</div>';
-  }).join('') : '<p class="muted">' + t('還沒有選擇同事，請從下方新增。') + '</p>') + '</div>';
-  if (D.cfg.open && D.peerCandidates.length) {
-    h += '<div class="card"><h3>' + t('新增合作過的同事') + '</h3><p class="muted">' + t('今年工作上有交集的同事，都歡迎留下回饋。') + '</p><select id="peerAdd"><option value="">' + t('選擇同事…') + '</option>' +
-      groupOptions(D.peerCandidates) + '</select></div>';
-  }
+  };
+  var must = D.peers.filter(function (p) { return p.assigned; }), extra = D.peers.filter(function (p) { return !p.assigned; });
+  var h = '<button class="back" data-go="home">' + t('‹ 返回') + '</button><div><h1>' + t('同儕回饋') + '</h1><p class="muted">' +
+    t('同儕回饋分成兩種：主管指定的對象一定要填；你也可以自己加選今年合作過的同事。回饋內容只有執行長看得到，轉達時不會顯示您的姓名。') + '</p></div>';
+  if (D.cfg.minPeers) h += '<div class="notice info">' + t('請至少為 {0} 位同事填寫，目前已完成 {1} 位。', D.cfg.minPeers, doneN) + '</div>';
+  h += '<div class="card"><h3>' + t('主管指定的對象（必填）') + '</h3><p class="muted">' + t('主管依今年的合作情況為你指定的同事，請全部完成。') + '</p>' +
+    (must.length ? must.map(row).join('') : '<p class="muted">' + t('主管還沒有指定，請過幾天再回來看。') + '</p>') + '</div>';
+  h += '<div class="card"><h3>' + t('我想另外回饋的同事（選填）') + '</h3><p class="muted">' + t('今年工作上有交集、你也想給回饋的同事，可以自己加進來。不加也沒關係。') + '</p>' + extra.map(row).join('') +
+    ((D.cfg.open && D.peerCandidates.length) ? '<select id="peerAdd"><option value="">' + t('＋ 選擇要加入的同事…') + '</option>' + groupOptions(D.peerCandidates) + '</select>' : '') + '</div>';
   return h;
 }
 function groupOptions(list, selected) {
