@@ -107,7 +107,7 @@ var lang = store('pr:lang') || '';
 /* ───── 語言 ───── */
 var VI = {
   '年度績效評核': 'Đánh giá hiệu suất cuối năm',
-  '請用您的公司 Email 登入，系統會寄一組驗證碼給您。': 'Vui lòng đăng nhập bằng email công ty. Hệ thống sẽ gửi mã xác nhận cho bạn.',
+  '請用您 MAYO 系統的 Email 登入，系統會寄一組驗證碼給您。': 'Vui lòng đăng nhập bằng email của bạn trong hệ thống MAYO. Hệ thống sẽ gửi mã xác nhận cho bạn.',
   '寄送驗證碼': 'Gửi mã xác nhận', '處理中…': 'Đang xử lý…',
   '驗證碼已寄到 {0}，10 分鐘內有效。沒收到請查看垃圾信件匣。': 'Mã xác nhận đã được gửi đến {0}, có hiệu lực trong 10 phút. Nếu chưa nhận được, hãy kiểm tra thư rác.',
   '6 位數驗證碼': 'Mã xác nhận 6 chữ số', '登入': 'Đăng nhập', '換一個 Email': 'Dùng email khác', '登出': 'Đăng xuất',
@@ -224,7 +224,7 @@ function load() {
 
 /* ───── 登入 ───── */
 function viewLogin() {
-  var h = langBar() + '<div><h1>' + t('年度績效評核') + '</h1><p class="muted">' + t('請用您的公司 Email 登入，系統會寄一組驗證碼給您。') + '</p></div><div class="card">';
+  var h = langBar() + '<div><h1>' + t('年度績效評核') + '</h1><p class="muted">' + t('請用您 MAYO 系統的 Email 登入，系統會寄一組驗證碼給您。') + '</p></div><div class="card">';
   if (login.step === 'email') {
     h += '<label for="lg_email" class="qlabel">Email</label><input type="email" id="lg_email" autocomplete="email" inputmode="email" value="' + esc(login.email) + '">' +
       '<button class="btn" data-login="send">' + t('寄送驗證碼') + '</button>';
