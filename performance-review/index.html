@@ -48,6 +48,9 @@ button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-
 .pill.green { background: var(--good-soft); color: var(--good); }
 .notice { border-radius: 12px; padding: 12px 14px; font-size: 14px; background: var(--warn-soft); color: var(--warn); }
 .notice.info { background: var(--accent-soft); color: var(--accent); }
+.vis { border: 1px solid var(--good); background: var(--good-soft); color: var(--good); border-radius: 12px; padding: 10px 14px; font-size: 14px; }
+.vis b { margin-right: 4px; }
+.vistag { display: block; margin-top: 4px; font-size: 13px; font-weight: 500; color: var(--good); }
 .q { display: flex; flex-direction: column; gap: 8px; padding: 14px 0; border-top: 1px solid var(--line); }
 .q:first-of-type { border-top: 0; padding-top: 0; }
 .q.miss .qlabel { color: var(--bad); }
@@ -128,8 +131,8 @@ var VI = {
   '我收到的感謝卡': 'Thiệp cảm ơn tôi nhận được', '目前還沒有收到感謝卡。': 'Hiện chưa nhận được thiệp cảm ơn nào.',
   '‹ 返回': '‹ Quay lại', '送出': 'Gửi', '更新並送出': 'Cập nhật và gửi', '送出中…': 'Đang gửi…', '已送出': 'Đã gửi',
   '還有必填題目尚未完成': 'Vẫn còn câu bắt buộc chưa hoàn thành',
-  '請誠實回顧今年的表現。主管與執行長會看到這份內容。': 'Hãy nhìn lại trung thực về công việc năm nay. Quản lý và Giám đốc điều hành sẽ xem nội dung này.',
-  '這份問卷<b>只有執行長看得到</b>，您的主管看不到，也不計入評核分數。請放心說真話。': 'Khảo sát này <b>chỉ Giám đốc điều hành xem được</b>. Quản lý của bạn không xem được và nó không tính vào điểm đánh giá. Hãy yên tâm nói thật.',
+  '請誠實回顧今年的表現，寫得越具體越好。': 'Hãy nhìn lại trung thực về công việc năm nay. Quản lý và Giám đốc điều hành sẽ xem nội dung này.',
+  '這份問卷不計入評核分數，請放心說真話。': 'Khảo sát này <b>chỉ Giám đốc điều hành xem được</b>. Quản lý của bạn không xem được và nó không tính vào điểm đánh giá. Hãy yên tâm nói thật.',
   '只評今年實際合作過的同事。回饋內容只有執行長看得到，轉達時不會顯示您的姓名。': 'Chỉ nhận xét những đồng nghiệp bạn thực sự làm việc cùng trong năm nay. Chỉ Giám đốc điều hành xem được nội dung, khi chuyển lời sẽ không hiển thị tên bạn.',
   '請至少為 {0} 位同事填寫，目前已完成 {1} 位。': 'Vui lòng nhận xét ít nhất {0} đồng nghiệp. Bạn đã hoàn thành {1} người.',
   '我的回饋對象': 'Đồng nghiệp tôi nhận xét', '・指定': '・Được chỉ định',
@@ -181,6 +184,20 @@ var VI = {
   '我想另外回饋的同事（選填）': 'Đồng nghiệp tôi muốn nhận xét thêm (tùy chọn)',
   '今年工作上有交集、你也想給回饋的同事，可以自己加進來。不加也沒關係。': 'Bạn có thể tự thêm những đồng nghiệp đã làm việc cùng trong năm nay mà bạn muốn nhận xét. Không thêm cũng không sao.',
   '＋ 選擇要加入的同事…': '＋ Chọn đồng nghiệp muốn thêm…',
+  '誰看得到': 'Ai xem được',
+  '你的主管、執行長': 'Quản lý của bạn, Giám đốc điều hành', '只有執行長': 'Chỉ Giám đốc điều hành', '收卡的同事、執行長': 'Người nhận thiệp, Giám đốc điều hành',
+  '你自己、你的直屬主管、執行長。其他同事看不到。': 'Bạn, quản lý trực tiếp của bạn và Giám đốc điều hành. Các đồng nghiệp khác không xem được.',
+  '只有執行長。你的主管和其他同事都看不到。': 'Chỉ Giám đốc điều hành. Quản lý của bạn và các đồng nghiệp khác đều không xem được.',
+  '只有執行長。你的主管看不到，被你評的同事也不會知道是誰寫的。': 'Chỉ Giám đốc điều hành. Quản lý của bạn không xem được, đồng nghiệp được nhận xét cũng không biết ai đã viết.',
+  '收到卡片的同事（會顯示你的名字）和執行長。': 'Đồng nghiệp nhận thiệp (có hiển thị tên bạn) và Giám đốc điều hành.',
+  '被指定的人只會看到自己要評誰；被評的同仁不會知道是誰評他。': 'Người được chỉ định chỉ thấy mình cần nhận xét ai; người được nhận xét sẽ không biết ai nhận xét mình.',
+  '只有執行長。同仁在系統裡看不到你的評分與評語，請在一對一面談時親自回饋。': 'Chỉ Giám đốc điều hành. Nhân viên không xem được điểm và nhận xét của bạn trong hệ thống, hãy trao đổi trực tiếp khi gặp riêng.',
+  '請誠實回顧今年的表現，寫得越具體越好。': 'Hãy nhìn lại trung thực về công việc năm nay, viết càng cụ thể càng tốt.',
+  '這份問卷不計入評核分數，請放心說真話。': 'Khảo sát này không tính vào điểm đánh giá. Hãy yên tâm nói thật.',
+  '不計入評核分數，約 3 分鐘': 'Không tính vào điểm đánh giá, khoảng 3 phút',
+  '同儕回饋分成兩種：主管指定的對象一定要填；你也可以自己加選今年合作過的同事。': 'Nhận xét đồng nghiệp gồm hai loại: những người do quản lý chỉ định thì bắt buộc phải làm; ngoài ra bạn có thể tự chọn thêm đồng nghiệp đã làm việc cùng trong năm nay.',
+  '為每位直屬同仁挑選今年和他實際合作最多的同事，可以跨部門。': 'Hãy chọn những đồng nghiệp làm việc nhiều nhất với từng nhân viên trong năm nay, có thể khác bộ phận.',
+  '評分前可以先看同仁的自評。': 'Trước khi chấm điểm, bạn có thể xem bản tự đánh giá của nhân viên.',
   '是': 'Có', '否': 'Không', '低': 'Thấp', '中': 'Trung bình', '高': 'Cao',
   '最佳支援': 'Hỗ trợ tốt nhất', '專業可靠': 'Chuyên nghiệp, đáng tin', '溫暖貼心': 'Ấm áp, chu đáo', '創意點子': 'Ý tưởng sáng tạo', '使命必達': 'Luôn hoàn thành nhiệm vụ'
 };
@@ -281,7 +298,7 @@ function doLogin(act, btn) {
 function introKey() { return 'pr:intro:' + D.cfg.year + ':' + D.me.id; }
 function viewIntro() {
   var w = D.cfg.weights, sec = function (title, body) { return '<div class="card"><h3>' + t(title) + '</h3>' + body + '</div>'; };
-  var todo = TASKS.filter(function (x) { return D.tasks[x[0]] !== 'na'; }).map(function (x) { return '<li>' + t(x[1]) + '</li>'; }).join('');
+  var todo = TASKS.filter(function (x) { return D.tasks[x[0]] !== 'na'; }).map(function (x) { return '<li style="margin-bottom:8px"><b>' + t(x[1]) + '</b><br><span class="muted">' + taskDesc(x) + (VIS[x[0]][0] ? '　' + t('誰看得到') + '：' + t(VIS[x[0]][0]) : '') + '</span></li>'; }).join('');
   var h = langBar() + '<div><h1>' + t('今年的評核方式') + '</h1><p class="muted">' + t('{0} 年度績效評核', esc(D.cfg.year)) + (D.cfg.deadline ? '　' + t('截止日 {0}', esc(D.cfg.deadline)) : '') + '</p></div>';
   h += sec('為什麼今年換新的方式', '<p>' + t('過去的評核主要靠主管的印象。今年我們希望更公平、更全面，也希望聽見每個人的聲音：你今年做得有沒有成就感、和團隊合作開不開心、需要公司幫什麼忙。') + '</p>');
   h += sec('你需要做的事', '<ol style="margin:0;padding-left:1.4em">' + todo + '</ol><p class="muted">' + t('全部約 20 分鐘，可以分次填寫。') + '</p>');
@@ -294,20 +311,34 @@ function viewIntro() {
 /* ───── 首頁 ───── */
 var TASKS = [
   ['self', '自評', '回顧今年的成果與成長，約 8 分鐘', 'self'],
-  ['voice', '心聲問卷', '只有執行長看得到，不計入評核分數，約 3 分鐘', 'voice'],
+  ['voice', '心聲問卷', '不計入評核分數，約 3 分鐘', 'voice'],
   ['peer', '同儕回饋', '完成主管指定的對象，也可以自己加選同事，每位約 1 分鐘', 'peerList'],
   ['thanks', '感謝卡', '', 'thanks'],
   ['assign', '指定同儕評核人', '為每位直屬同仁指定合作對象，請在同仁開始填寫前完成', 'assignList'],
   ['mgr', '主管評核', '評核您的直屬同仁', 'mgrList']
 ];
+// 每份問卷誰看得到：[首頁短標, 問卷開頭完整說明]
+var VIS = {
+  self: ['你的主管、執行長', '你自己、你的直屬主管、執行長。其他同事看不到。'],
+  voice: ['只有執行長', '只有執行長。你的主管和其他同事都看不到。'],
+  peer: ['只有執行長', '只有執行長。你的主管看不到，被你評的同事也不會知道是誰寫的。'],
+  thanks: ['收卡的同事、執行長', '收到卡片的同事（會顯示你的名字）和執行長。'],
+  assign: ['', '被指定的人只會看到自己要評誰；被評的同仁不會知道是誰評他。'],
+  mgr: ['只有執行長', '只有執行長。同仁在系統裡看不到你的評分與評語，請在一對一面談時親自回饋。']
+};
+function visBox(k) { return '<div class="vis"><b>' + t('誰看得到') + '</b>' + t(VIS[k][1]) + '</div>'; }
+function taskDesc(x) {
+  var c = D.cfg;
+  return x[0] === 'thanks' ? t('寫給至少 {0} 位同事，具名送出', c.minThanks) :
+    (x[0] === 'peer' && c.minPeers) ? t('為至少 {0} 位今年合作過的同事留下回饋，每位約 1 分鐘', c.minPeers) : t(x[2]);
+}
 function viewHome() {
   var c = D.cfg, todo = 0, total = 0;
   var cards = TASKS.filter(function (x) { return D.tasks[x[0]] !== 'na'; }).map(function (x) {
     var st = D.tasks[x[0]];
     if (st !== 'optional') { total++; if (st === 'todo') todo++; }
-    var desc = x[0] === 'thanks' ? t('寫給至少 {0} 位同事，具名送出', c.minThanks) :
-      (x[0] === 'peer' && c.minPeers) ? t('為至少 {0} 位今年合作過的同事留下回饋，每位約 1 分鐘', c.minPeers) : t(x[2]);
-    return '<button class="task" data-go="' + x[3] + '"><span class="grow"><b>' + t(x[1]) + '</b><br><span class="muted">' + desc + '</span></span>' + pill(st) + '</button>';
+    var desc = taskDesc(x);
+    return '<button class="task" data-go="' + x[3] + '"><span class="grow"><b>' + t(x[1]) + '</b><br><span class="muted">' + desc + '</span>' + (VIS[x[0]][0] ? '<span class="vistag">' + t('誰看得到') + '：' + t(VIS[x[0]][0]) + '</span>' : '') + '</span>' + pill(st) + '</button>';
   }).join('');
   var h = langBar() + '<div><h1>' + t('{0}，辛苦了', esc(D.me.name)) + '</h1><p class="muted">' + t('{0} 年度績效評核', esc(c.year)) + (c.deadline ? '　' + t('截止日 {0}', esc(c.deadline)) : '') + '</p></div>';
   if (!c.open) h += '<div class="notice">' + t('本年度評核已截止，目前只能檢視，無法修改。') + '</div>';
@@ -349,7 +380,7 @@ function fieldHtml(f) {
   return h + '</div>';
 }
 function viewForm() {
-  var h = '<button class="back" data-go="' + F.backTo + '">' + t('‹ 返回') + '</button><div><h1>' + esc(F.title) + '</h1><p class="muted">' + F.intro + '</p></div>' + F.extra +
+  var h = '<button class="back" data-go="' + F.backTo + '">' + t('‹ 返回') + '</button><div><h1>' + esc(F.title) + '</h1><p class="muted">' + F.intro + '</p></div>' + visBox(F.form) + F.extra +
     ((F.form === 'self' || F.form === 'mgr') ? '<div class="notice info">' + t('給分參考：3 分代表該做的都有做到；4 分、5 分請想得出具體的例子；1 分、2 分代表明顯需要改進。') + '</div>' : '');
   var group = null, open = false;
   F.fields.forEach(function (f) {
@@ -390,7 +421,8 @@ function viewPeerList() {
   };
   var must = D.peers.filter(function (p) { return p.assigned; }), extra = D.peers.filter(function (p) { return !p.assigned; });
   var h = '<button class="back" data-go="home">' + t('‹ 返回') + '</button><div><h1>' + t('同儕回饋') + '</h1><p class="muted">' +
-    t('同儕回饋分成兩種：主管指定的對象一定要填；你也可以自己加選今年合作過的同事。回饋內容只有執行長看得到，轉達時不會顯示您的姓名。') + '</p></div>';
+    t('同儕回饋分成兩種：主管指定的對象一定要填；你也可以自己加選今年合作過的同事。') + '</p></div>';
+  h += visBox('peer');
   if (D.cfg.minPeers) h += '<div class="notice info">' + t('請至少為 {0} 位同事填寫，目前已完成 {1} 位。', D.cfg.minPeers, doneN) + '</div>';
   h += '<div class="card"><h3>' + t('主管指定的對象（必填）') + '</h3><p class="muted">' + t('主管依今年的合作情況為你指定的同事，請全部完成。') + '</p>' +
     (must.length ? must.map(row).join('') : '<p class="muted">' + t('主管還沒有指定，請過幾天再回來看。') + '</p>') + '</div>';
@@ -418,6 +450,7 @@ function viewThanks() {
   if (!F) F = { cards: (D.thanks.length ? D.thanks : (getDraft('thanks', 'all') || [])).map(function (c) { return { to: c.to, tag: c.tag, text: c.text }; }) };
   while (F.cards.length < D.cfg.minThanks) F.cards.push({ to: '', tag: '', text: '' });
   var h = '<button class="back" data-go="home">' + t('‹ 返回') + '</button><div><h1>' + t('感謝卡') + '</h1><p class="muted">' + t('今年誰幫過你、誰讓你覺得有他真好？請寫給至少 {0} 位同事，不限部門。感謝卡會具名送給對方。', D.cfg.minThanks) + '</p></div>';
+  h += visBox('thanks');
   h += F.cards.map(function (c, i) {
     return '<div class="card"><div class="row"><h3 class="grow">' + t('第 {0} 張', i + 1) + '</h3>' + (F.cards.length > D.cfg.minThanks ? '<button class="btn ghost slim" data-delcard="' + i + '">' + t('移除') + '</button>' : '') + '</div>' +
       '<select id="tk_to' + i + '" data-card="' + i + '" data-f="to"><option value="">' + t('要感謝誰？') + '</option>' + groupOptions(D.directory, c.to) + '</select>' +
@@ -435,7 +468,7 @@ function submitThanks() {
 
 /* ───── 主管指定同儕評核人 ───── */
 function viewAssignList() {
-  return '<button class="back" data-go="home">' + t('‹ 返回') + '</button><div><h1>' + t('指定同儕評核人') + '</h1><p class="muted">' + t('為每位直屬同仁挑選今年和他實際合作最多的同事，可以跨部門。被指定的人會在自己的頁面看到要填寫的對象；當事人不會知道是誰評他。') + '</p></div>' +
+  return '<button class="back" data-go="home">' + t('‹ 返回') + '</button><div><h1>' + t('指定同儕評核人') + '</h1><p class="muted">' + t('為每位直屬同仁挑選今年和他實際合作最多的同事，可以跨部門。') + '</p></div>' + visBox('assign') +
     '<div class="card">' + D.reports.map(function (r) {
       return '<div class="prow"><button class="who" data-assign="' + esc(r.id) + '"><b>' + esc(r.name) + '</b> <span class="muted">' +
         (r.raters.length ? esc(r.raters.map(function (id) { return (byId(r.pool, id) || {}).name || id; }).join('、')) : t('尚未指定')) + '</span></button>' +
@@ -482,7 +515,7 @@ function submitAssign() {
 
 /* ───── 主管評核 ───── */
 function viewMgrList() {
-  return '<button class="back" data-go="home">' + t('‹ 返回') + '</button><div><h1>' + t('主管評核') + '</h1><p class="muted">' + t('評分前可以先看同仁的自評。離職風險與關鍵人才的判斷只有執行長看得到。') + '</p></div>' +
+  return '<button class="back" data-go="home">' + t('‹ 返回') + '</button><div><h1>' + t('主管評核') + '</h1><p class="muted">' + t('評分前可以先看同仁的自評。') + '</p></div>' + visBox('mgr') +
     '<div class="card">' + D.reports.map(function (r) {
       return '<div class="prow"><button class="who" data-report="' + esc(r.id) + '"><b>' + esc(r.name) + '</b> <span class="muted">' + esc(r.title || r.dept) + (r.self ? '' : t('・尚未自評')) + '</span></button>' + pill(r.answers ? 'done' : 'todo') + '</div>';
     }).join('') + '</div>';
@@ -611,9 +644,9 @@ function viewPerson() {
 function render() {
   if (!D) { app.innerHTML = viewLogin(); return; }
   var v = view.name;
-  if (v === 'self' && !F) openForm('self', D.me.id, '自評', '請誠實回顧今年的表現。主管與執行長會看到這份內容。', 'home');
-  if (v === 'voice' && !F) openForm('voice', D.me.id, '心聲問卷', '這份問卷<b>只有執行長看得到</b>，您的主管看不到，也不計入評核分數。請放心說真話。', 'home');
-  if (F && F.fields && (v === 'self' || v === 'voice')) { F.title = t(v === 'self' ? '自評' : '心聲問卷'); F.intro = t(v === 'self' ? '請誠實回顧今年的表現。主管與執行長會看到這份內容。' : '這份問卷<b>只有執行長看得到</b>，您的主管看不到，也不計入評核分數。請放心說真話。'); }
+  if (v === 'self' && !F) openForm('self', D.me.id, '自評', '請誠實回顧今年的表現，寫得越具體越好。', 'home');
+  if (v === 'voice' && !F) openForm('voice', D.me.id, '心聲問卷', '這份問卷不計入評核分數，請放心說真話。', 'home');
+  if (F && F.fields && (v === 'self' || v === 'voice')) { F.title = t(v === 'self' ? '自評' : '心聲問卷'); F.intro = t(v === 'self' ? '請誠實回顧今年的表現，寫得越具體越好。' : '這份問卷不計入評核分數，請放心說真話。'); }
   if (v === 'home') store(introKey(), '1');
   app.innerHTML = v === 'home' ? viewHome() : v === 'intro' ? viewIntro() : (v === 'self' || v === 'voice' || v === 'form') ? viewForm() :
     v === 'peerList' ? viewPeerList() : v === 'assignList' ? viewAssignList() : v === 'assign' ? viewAssign() : v === 'thanks' ? viewThanks() : v === 'mgrList' ? viewMgrList() :
