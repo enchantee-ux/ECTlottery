@@ -58,7 +58,7 @@ function logic() {
   const b1 = call('boot', { token: tokens.E001 }).data;
   assert.strictEqual(JSON.stringify(b1).includes('最近在考慮'), false, '主管看不到部屬的心聲');
   assert.strictEqual(b1.reports.length, 3);
-  const scores = { r1: 5, r2: 5, r3: 5, s1: 5, s2: 5, t1: 5, t2: 5, a1: 5, a2: 5, strength: 'x', risk: '低', keyman: '否' };
+  const scores = { r1: 5, r2: 5, r3: 5, s1: 5, s2: 5, t1: 5, t2: 5, a1: 5, a2: 5, strength: 'x', summary: 'x', risk: '低', keyman: '否' };
   assert(!call('save', { token: tokens.E002, form: 'mgr', target: 'E003', answers: scores }).ok, '不能評非直屬同仁');
   assert(!call('save', { token: tokens.E002, form: 'self', target: 'E002', answers: { r1: 9 } }).ok, '分數需在 1–5');
   assert(!call('setFinal', { token: tokens.E001, id: 'E002', grade: 'S' }).ok);
@@ -77,6 +77,13 @@ function logic() {
   assert.strictEqual(be.sheets['自評'].data.length, before);
   be.api.writeResults();
   assert.strictEqual(be.sheets['結果'].data.length, 1 + rated.length);
+  // 舊版工作表沒有新題目的欄位時，存檔會自動補上欄名，不會漏存
+  const vs = be.sheets['心聲']; const col = vs.data[0].indexOf('薪資福利'); vs.data.forEach(r => r.splice(col, 1)); be.expireCache();
+  const voice = Object.assign({}, call('boot', { token: tokens.E002 }).data.voice, { v10: 2 });
+  assert(call('save', { token: tokens.E002, form: 'voice', target: 'E002', answers: voice }).ok);
+  assert(vs.data[0].indexOf('薪資福利') >= 0, '補上欄名');
+  const care = call('dashboard', { token: tokens.E000 }).data.people.find(p => p.id === 'E002');
+  assert.strictEqual(care.voice.v10, 2); assert(care.flags.some(f => f.text.includes('薪資福利')));
   // 快取：連續讀取不重讀試算表；經系統寫入後立刻看得到新資料
   let reads = 0; const sh = be.sheets['自評']; const orig = sh.getDataRange.bind(sh); sh.getDataRange = () => { reads++; return orig(); };
   call('boot', { token: tokens.E002 }); call('boot', { token: tokens.E003 }); call('dashboard', { token: tokens.E000 });
@@ -118,6 +125,8 @@ async function ui(outDir) {
   await page.waitForSelector('.toast'); await page.waitForSelector('#lg_email');
   await page.fill('#lg_email', 'e002@example.com'); await page.click('[data-login="send"]');
   await page.waitForSelector('#lg_code'); await page.fill('#lg_code', lastCode()); await page.click('[data-login="verify"]');
+  await page.waitForSelector('text=為什麼今年換新的方式'); await shot('00b-intro'); await noOverflow();
+  await page.click('[data-go="home"]');
   await page.waitForSelector('.task'); await shot('01-home'); await noOverflow();
   assert.strictEqual(await page.locator('[data-go="peerList"] .pill').innerText(), '選填');
   await page.click('[data-go="self"]');
@@ -136,7 +145,7 @@ async function ui(outDir) {
   await page.click('[data-go="peerList"]'); await shot('03-peers');
   for (let i = 0; i < 3; i++) {
     await page.selectOption('#peerAdd', { index: 1 }); await fillScores();
-    if (i === 0) await page.fill('#f_praise', '很可靠');
+    await page.fill('#f_praise', '很可靠');
     await page.click('[data-submit]'); await page.waitForSelector('#peerAdd');
   }
   await shot('03b-peers-done');
@@ -160,6 +169,7 @@ async function ui(outDir) {
     return (c.innerText.replace(/行銷|設計|生產|銷售|管理/g, '').match(/[\u4e00-\u9fff]+/g) || []).join(' '); }); assert.strictEqual(left, '', where); };
   await scan('心聲');
   await page.click('[data-go="home"]'); await scan('首頁');
+  await page.click('[data-go="intro"]'); await scan('說明頁'); await shot('07b-intro-vi'); await page.click('[data-go="home"]');
   await page.click('[data-go="self"]'); await scan('自評'); await page.click('[data-go="home"]');
   await page.click('[data-go="peerList"]'); await scan('同儕清單');
   await page.locator('[data-peer]').first().click(); await scan('同儕表單'); await page.click('[data-go="peerList"]'); await page.click('[data-go="home"]');
@@ -170,7 +180,7 @@ async function ui(outDir) {
   await page.evaluate(tk => localStorage.setItem('pr:session', tk), tokens.E001);
   await page.goto('http://localhost:8766/');
   // 主管畫面的越南文：切換後不應殘留中文介面文字（姓名、部門、職稱是資料，不算）
-  await page.waitForSelector('.task'); await page.click('[data-lang="vi"]');
+  await page.click('[data-go="home"]'); await page.waitForSelector('.task'); await page.click('[data-lang="vi"]');
   const cjkLeft = async () => page.evaluate(() => {
     const c = document.getElementById('app').cloneNode(true);
     c.querySelectorAll('h1, b, h3, .chip, .who, option, optgroup, [data-lang], .quote').forEach(e => e.remove());
@@ -196,7 +206,7 @@ async function ui(outDir) {
   assert.strictEqual(call('boot', { token: tokens.E003 }).data.peers.filter(p => p.assigned).length, 1, '被指定的人會看到對象');
   await page.click('[data-go="home"]'); await page.click('[data-go="mgrList"]');
   await page.locator('[data-report]').first().click(); await fillScores();
-  await page.fill('#f_kpi', '營收成長 12%'); await page.fill('#f_strength', '主動補位');
+  await page.fill('#f_kpi', '營收成長 12%'); await page.fill('#f_strength', '主動補位'); await page.fill('#f_summary', '穩定可靠');
   await page.locator('[data-k="risk"][data-c="中"]').click(); await page.locator('[data-k="keyman"][data-c="是"]').click();
   await page.locator('details summary').click(); await shot('06-manager'); await noOverflow();
   await page.click('[data-submit]'); await page.waitForSelector('[data-report]');
@@ -212,7 +222,7 @@ async function ui(outDir) {
   await p2.goto('http://localhost:8767/');
   await p2.evaluate(tk => localStorage.setItem('pr:session', tk), full.tokens.E000);
   await p2.reload();
-  await p2.waitForSelector('[data-go="dash"]'); await p2.click('[data-go="dash"]');
+  await p2.click('[data-go="home"]'); await p2.waitForSelector('[data-go="dash"]'); await p2.click('[data-go="dash"]');
   await p2.waitForSelector('.tabs');
   const tabs = ['progress', 'result', 'care', 'thanks', 'mood'];
   for (let i = 0; i < tabs.length; i++) {

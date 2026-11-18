@@ -48,37 +48,37 @@ const DEFAULT_SETTINGS = [
 
 const DIMENSIONS = [
   { key: 'result', name: '工作成果', weight: '權重_工作成果', items: [
-    { k: 'r1', label: '目標達成', desc: '完成年度被交付的目標與任務' },
-    { k: 'r2', label: '工作品質', desc: '產出正確、細緻，很少需要返工' },
-    { k: 'r3', label: '效率與時效', desc: '在期限內完成，善用時間與資源' }] },
+    { k: 'r1', label: '目標達成', desc: '主管交代的工作和目標，今年都有做到' },
+    { k: 'r2', label: '工作品質', desc: '做出來的東西正確、仔細，很少出錯或重做' },
+    { k: 'r3', label: '效率與時效', desc: '事情能準時完成，不會拖到別人' }] },
   { key: 'skill', name: '專業能力與成長', weight: '權重_專業成長', items: [
-    { k: 's1', label: '專業能力', desc: '具備職務所需的知識與技術' },
-    { k: 's2', label: '學習與解決問題', desc: '主動學習新事物，遇到問題能找出解法' }] },
+    { k: 's1', label: '專業能力', desc: '自己份內的工作做得熟練，不太需要別人幫忙收尾' },
+    { k: 's2', label: '學習與解決問題', desc: '願意學新東西；遇到問題會想辦法解決，或及時找人幫忙' }] },
   { key: 'team', name: '團隊合作', weight: '權重_團隊合作', items: [
-    { k: 't1', label: '溝通協作', desc: '溝通清楚，與同事、跨部門配合順暢' },
-    { k: 't2', label: '支援他人', desc: '願意分享與補位，讓團隊更好' }] },
-  { key: 'attitude', name: '態度與品牌價值', weight: '權重_態度價值', items: [
-    { k: 'a1', label: '責任感與主動性', desc: '說到做到，主動發現並處理問題' },
-    { k: 'a2', label: '品牌價值', desc: '以顧客與品牌為先，維護樂朗奇的品質與形象' }] }
+    { k: 't1', label: '溝通協作', desc: '有事會說清楚、會回報，和同事及其他部門配合順利' },
+    { k: 't2', label: '支援他人', desc: '同事忙不過來時願意幫忙，也願意教別人' }] },
+  { key: 'attitude', name: '工作態度與品質', weight: '權重_態度價值', items: [
+    { k: 'a1', label: '責任感與主動性', desc: '答應的事會做到；看到問題會主動處理或提出來' },
+    { k: 'a2', label: '對品質的堅持', h: '品牌價值', desc: '不隨便、不將就，在意產品與服務的品質，維護樂朗奇的形象' }] }
 ];
 
 const SCALE_VI = ['Cần cải thiện', 'Tạm được', 'Đạt kỳ vọng', 'Vượt kỳ vọng', 'Xuất sắc'];
 const AGREE_VI = ['Rất không đồng ý', 'Không đồng ý', 'Bình thường', 'Đồng ý', 'Rất đồng ý'];
 const GROUP_VI = { '我的這一年': 'Một năm của tôi', '工作成果': 'Kết quả công việc', '專業能力與成長': 'Năng lực chuyên môn và phát triển',
-  '團隊合作': 'Làm việc nhóm', '態度與品牌價值': 'Thái độ và giá trị thương hiệu', '回顧與展望': 'Nhìn lại và hướng tới',
+  '團隊合作': 'Làm việc nhóm', '工作態度與品質': 'Thái độ làm việc và chất lượng', '回顧與展望': 'Nhìn lại và hướng tới',
   '工作': 'Công việc', '團隊': 'Đội nhóm', '公司': 'Công ty', '想說的話': 'Điều muốn nói',
   '成果佐證': 'Minh chứng kết quả', '評語': 'Nhận xét', '留才判斷': 'Đánh giá giữ chân nhân sự' };
 const FIELD_VI = {
   ach: ['Ba thành quả lớn nhất trong năm', 'Những việc bạn tự hào nhất và muốn được ghi nhận, hãy viết cụ thể'],
-  r1: ['Hoàn thành mục tiêu', 'Hoàn thành các mục tiêu và nhiệm vụ được giao trong năm'],
-  r2: ['Chất lượng công việc', 'Sản phẩm chính xác, tỉ mỉ, ít khi phải làm lại'],
-  r3: ['Hiệu suất và đúng hạn', 'Hoàn thành đúng thời hạn, sử dụng tốt thời gian và nguồn lực'],
-  s1: ['Năng lực chuyên môn', 'Có kiến thức và kỹ năng cần thiết cho công việc'],
-  s2: ['Học hỏi và giải quyết vấn đề', 'Chủ động học điều mới, gặp vấn đề biết tìm cách giải quyết'],
-  t1: ['Giao tiếp và phối hợp', 'Giao tiếp rõ ràng, phối hợp tốt với đồng nghiệp và các bộ phận khác'],
-  t2: ['Hỗ trợ người khác', 'Sẵn sàng chia sẻ và giúp đỡ để cả nhóm tốt hơn'],
-  a1: ['Trách nhiệm và chủ động', 'Nói là làm, chủ động phát hiện và xử lý vấn đề'],
-  a2: ['Giá trị thương hiệu', 'Đặt khách hàng và thương hiệu lên trước, giữ gìn chất lượng và hình ảnh của enchantée'],
+  r1: ['Hoàn thành mục tiêu', 'Những công việc và mục tiêu quản lý giao trong năm nay đều đã làm được'],
+  r2: ['Chất lượng công việc', 'Làm ra sản phẩm đúng, cẩn thận, ít khi sai hoặc phải làm lại'],
+  r3: ['Hiệu suất và đúng hạn', 'Hoàn thành công việc đúng giờ, không làm chậm người khác'],
+  s1: ['Năng lực chuyên môn', 'Làm thành thạo công việc của mình, ít khi cần người khác làm giúp phần còn lại'],
+  s2: ['Học hỏi và giải quyết vấn đề', 'Sẵn sàng học điều mới; gặp vấn đề thì tìm cách giải quyết hoặc kịp thời nhờ người giúp'],
+  t1: ['Giao tiếp và phối hợp', 'Có việc thì nói rõ, có báo cáo lại; phối hợp tốt với đồng nghiệp và các bộ phận khác'],
+  t2: ['Hỗ trợ người khác', 'Khi đồng nghiệp bận không xuể thì sẵn sàng giúp, cũng sẵn sàng chỉ dẫn người khác'],
+  a1: ['Trách nhiệm và chủ động', 'Đã hứa thì làm; thấy vấn đề thì chủ động xử lý hoặc nêu ra'],
+  a2: ['Kiên trì với chất lượng', 'Không làm qua loa, không dễ dãi; quan tâm đến chất lượng sản phẩm và dịch vụ, giữ gìn hình ảnh của enchantée'],
   challenge: ['Thử thách lớn nhất', 'Việc khó khăn nhất trong năm và bạn đã đối mặt thế nào'],
   goal: ['Mục tiêu năm tới', 'Điều bạn muốn đạt được hoặc học được nhất trong năm tới'],
   support: ['Hỗ trợ cần thiết', 'Bạn mong công ty hoặc quản lý hỗ trợ điều gì'],
@@ -97,6 +97,9 @@ const FIELD_VI = {
   v7: ['Đối xử công bằng', 'Đóng góp của tôi được ghi nhận và tôi được đối xử công bằng'],
   v8: ['Sẵn sàng giới thiệu', 'Tôi sẽ giới thiệu bạn bè đến làm việc tại enchantée'],
   v9: ['Mong muốn gắn bó', 'Một năm nữa, tôi vẫn muốn làm việc tại enchantée'],
+  v10: ['Lương và phúc lợi', 'Tôi thấy mức lương và phúc lợi hiện tại là hợp lý'],
+  v11: ['Kỳ vọng công việc', 'Tôi hiểu rõ công ty và quản lý mong đợi gì ở công việc của tôi'],
+  summary: ['Tổng kết một câu', 'Dùng một câu để tổng kết biểu hiện của nhân viên này trong năm nay'],
   happy: ['Điều vui nhất năm nay', ''],
   change: ['Một điều muốn thay đổi nhất', 'Nếu có thể thay đổi một điều ở công ty hoặc trong công việc'],
   private: ['Điều muốn nói với Giám đốc điều hành', 'Bạn có thể nói bất cứ điều gì, chỉ Giám đốc điều hành xem được'],
@@ -121,7 +124,7 @@ function label_(f) { return LANG === 'vi' && FIELD_VI[f.k] ? FIELD_VI[f.k][0] : 
 function scoreFields_() {
   const out = [];
   DIMENSIONS.forEach(d => d.items.forEach(it => out.push(
-    { k: it.k, label: it.label, desc: it.desc, type: 'score', req: true, group: d.name, scale: SCALE })));
+    { k: it.k, label: it.label, h: it.h, desc: it.desc, type: 'score', req: true, group: d.name, scale: SCALE })));
   return out;
 }
 
@@ -138,6 +141,7 @@ const FORMS = {
     { k: 'strength', label: '優點與貢獻', desc: '今年最值得肯定的具體事例', type: 'text', req: true, group: '評語' },
     { k: 'improve', label: '待改善', desc: '最需要調整的一到兩件事', type: 'text', group: '評語' },
     { k: 'develop', label: '明年發展建議', desc: '建議的目標、訓練或職務調整', type: 'text', group: '評語' },
+    { k: 'summary', label: '整體總評', desc: '用一句話總結這位同仁今年的表現', type: 'text', req: true, group: '評語' },
     { k: 'risk', label: '離職風險觀察', desc: '依你平日的觀察，僅執行長可見', type: 'choice', options: ['低', '中', '高'], req: true, group: '留才判斷' },
     { k: 'keyman', label: '關鍵人才', desc: '離開會對部門造成重大影響', type: 'choice', options: ['是', '否'], req: true, group: '留才判斷' }]) },
   peer: { sheet: SHEETS.peer, fields: [
@@ -145,16 +149,18 @@ const FORMS = {
     { k: 'p2', label: '值得信賴', desc: '答應的事會做到，交付準時', type: 'score', req: true, scale: AGREE },
     { k: 'p3', label: '主動支援', desc: '我需要幫忙時，願意伸出援手', type: 'score', req: true, scale: AGREE },
     { k: 'p4', label: '專業放心', desc: '交給這位同事的事讓我很放心', type: 'score', req: true, scale: AGREE },
-    { k: 'praise', label: '值得肯定', desc: '一句話寫下最欣賞的地方', type: 'text' },
+    { k: 'praise', label: '值得肯定', desc: '一句話寫下最欣賞的地方', type: 'text', req: true },
     { k: 'better', label: '可以更好', desc: '一句話寫下希望對方調整的地方', type: 'text' }] },
   voice: { sheet: SHEETS.voice, fields: [
     { k: 'v1', label: '成就感', desc: '今年的工作讓我有成就感', type: 'score', req: true, scale: AGREE, group: '工作' },
     { k: 'v2', label: '發揮專長', desc: '我的專長在工作上有被好好發揮', type: 'score', req: true, scale: AGREE, group: '工作' },
+    { k: 'v11', label: '工作期待', desc: '我清楚知道公司和主管對我的工作期待', type: 'score', req: true, scale: AGREE, group: '工作' },
     { k: 'v3', label: '學習成長', desc: '我在公司有學習與成長的機會', type: 'score', req: true, scale: AGREE, group: '工作' },
     { k: 'v4', label: '團隊合作', desc: '我和團隊同事合作愉快', type: 'score', req: true, scale: AGREE, group: '團隊' },
     { k: 'v5', label: '主管支持', desc: '我的主管支持我、尊重我', type: 'score', req: true, scale: AGREE, group: '團隊' },
     { k: 'v6', label: '工作負荷', desc: '我的工作量與壓力在可以負荷的範圍', type: 'score', req: true, scale: AGREE, group: '團隊' },
     { k: 'v7', label: '公平對待', desc: '我的付出有被看見，也被公平對待', type: 'score', req: true, scale: AGREE, group: '公司' },
+    { k: 'v10', label: '薪資福利', desc: '我覺得目前的薪資與福利是合理的', type: 'score', req: true, scale: AGREE, group: '公司' },
     { k: 'v8', label: '推薦意願', desc: '我會推薦朋友來樂朗奇工作', type: 'score', req: true, scale: AGREE, group: '公司' },
     { k: 'v9', label: '留任意願', desc: '一年後，我仍希望在樂朗奇工作', type: 'score', req: true, scale: AGREE, group: '公司' },
     { k: 'happy', label: '今年最開心的事', desc: '', type: 'text', group: '想說的話' },
@@ -389,6 +395,9 @@ function safe_(v) {
 }
 
 function rowValues_(sh, obj) {
+  const have = headerOf_(sh);
+  const missing = Object.keys(obj).filter(k => have.indexOf(k) < 0);
+  if (missing.length) sh.getRange(1, have.length + 1, 1, missing.length).setValues([missing]);
   return headerOf_(sh).map(h => (obj[h] === undefined || obj[h] === null) ? '' : safe_(obj[h]));
 }
 
@@ -588,7 +597,8 @@ function boot_(p) {
     cfg: {
       year: ctx.year, open: yes_(s['開放填寫']), deadline: dateText_(s['截止日']),
       minThanks: Math.min(num_(s['感謝卡最少張數'], 3), ctx.people.length - 1), tags: THANKS_TAGS,
-      minPeers: minPeerGive_(ctx, me)
+      minPeers: minPeerGive_(ctx, me),
+      weights: { mgr: num_(s['來源_主管'], 60), peer: num_(s['來源_同儕'], 25), self: num_(s['來源_自評'], 15) }
     },
     forms: clientForms_(),
     tasks: tasks_(ctx, me),
@@ -866,7 +876,7 @@ function flags_(p, totalThanks, headcount) {
   const v = p.voice;
   if (!v) add('yellow', '尚未填寫心聲問卷', '了解沒有填寫的原因，確認是否有顧慮');
   else {
-    const all = avg_(['v1', 'v2', 'v3', 'v4', 'v5', 'v6', 'v7', 'v8', 'v9'].map(k => v[k]));
+    const all = avg_(['v1', 'v2', 'v3', 'v4', 'v5', 'v6', 'v7', 'v8', 'v9', 'v10', 'v11'].map(k => v[k]));
     if (v.v9 <= 2) add('red', '留任意願低', '「如果有一件事改變了，會讓你更想留下來，那會是什麼？」');
     else if (v.v9 === 3) add('yellow', '留任意願普通', '「你對自己明年在公司的角色有什麼期待？」');
     if (all !== null && all <= 2.5) add('red', '整體滿意度偏低', '「今年有哪些事讓你覺得特別辛苦或失望？」');
@@ -875,6 +885,8 @@ function flags_(p, totalThanks, headcount) {
     if (v.v4 <= 2) add('yellow', '團隊合作不愉快', '「和同事配合上，最卡的地方是什麼？」');
     if (v.v5 <= 2) add('red', '與主管關係緊張', '「你希望主管用什麼方式和你溝通與交辦工作？」（請避免讓主管得知問卷內容）');
     if (v.v6 <= 2) add('yellow', '工作負荷過重', '「哪些工作佔掉最多時間？有哪些可以簡化或分出去？」');
+    if (v.v10 !== null && v.v10 <= 2) add('yellow', '對薪資福利不滿意', '「除了薪資數字之外，哪些福利或制度對你最重要？」先了解在意的是金額、公平性還是制度');
+    if (v.v11 !== null && v.v11 <= 2) add('yellow', '不清楚公司對他的期待', '請主管和他一起訂出明年三個最重要的工作目標');
     if (v.v7 <= 2) add('yellow', '覺得付出未被公平對待', '「你覺得哪些貢獻沒有被看見？」');
     if (v.meet === '是') add('yellow', '希望與您一對一面談', '由同仁主導話題，先聽完再回應');
     if ((p.final === 'S' || p.final === 'A') && ((all !== null && all < 3.5) || v.v9 <= 3)) {

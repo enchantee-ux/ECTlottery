@@ -158,6 +158,22 @@ var VI = {
   '・尚未自評': '・Chưa tự đánh giá', '{0} 的自評': 'Bản tự đánh giá của {0}', '評核 {0}': 'Đánh giá {0}',
   '這位同仁尚未送出自評，您仍可先評分，之後再回來調整。': 'Nhân viên này chưa gửi bản tự đánh giá. Bạn vẫn có thể chấm điểm trước và điều chỉnh sau.',
   '開啟執行長儀表板': 'Mở bảng điều khiển Giám đốc điều hành (tiếng Trung)',
+  '今年的評核方式': 'Cách đánh giá năm nay',
+  '為什麼今年換新的方式': 'Vì sao năm nay đổi cách đánh giá',
+  '過去的年終主要靠主管的印象。今年我們希望更公平，也希望聽見每個人的聲音：你今年做得有沒有成就感、和團隊合作開不開心、需要公司幫什麼忙。': 'Trước đây thưởng cuối năm chủ yếu dựa vào ấn tượng của quản lý. Năm nay chúng tôi muốn công bằng hơn và muốn lắng nghe từng người: năm nay bạn làm việc có thấy thành tựu không, làm việc với đồng nghiệp có vui không, cần công ty hỗ trợ điều gì.',
+  '你需要做的事': 'Việc bạn cần làm', '全部約 20 分鐘，可以分次填寫。': 'Tổng cộng khoảng 20 phút, có thể làm nhiều lần.',
+  '分數怎麼算': 'Điểm được tính thế nào',
+  '主管評 {0}%、同儕回饋 {1}%、自評 {2}%，換算成 S／A／B／C 四個等第，作為年終的依據。心聲問卷和感謝卡不計分。': 'Quản lý đánh giá {0}%, nhận xét đồng nghiệp {1}%, tự đánh giá {2}%. Tổng điểm được quy thành bốn hạng S／A／B／C và là căn cứ tính thưởng cuối năm. Khảo sát tâm tư và thiệp cảm ơn không tính điểm.',
+  '你今年不參加等第評核，只需要填心聲問卷和感謝卡。': 'Năm nay bạn không tham gia xếp hạng, chỉ cần làm khảo sát tâm tư và viết thiệp cảm ơn.',
+  '誰看得到什麼': 'Ai xem được gì',
+  '自評：你的主管和執行長。': 'Tự đánh giá: quản lý của bạn và Giám đốc điều hành.',
+  '心聲問卷、同儕回饋：只有執行長，主管看不到。': 'Khảo sát tâm tư, nhận xét đồng nghiệp: chỉ Giám đốc điều hành, quản lý không xem được.',
+  '心聲問卷：只有執行長，主管看不到。': 'Khảo sát tâm tư: chỉ Giám đốc điều hành, quản lý không xem được.',
+  '感謝卡：會具名送給對方。': 'Thiệp cảm ơn: gửi cho người nhận kèm tên bạn.',
+  '之後會發生什麼': 'Sau đó sẽ thế nào',
+  '截止後，主管會和你一對一談今年的回饋與明年的方向。': 'Sau hạn chót, quản lý sẽ trao đổi riêng với bạn về nhận xét năm nay và định hướng năm tới.',
+  '我了解了，開始填寫': 'Tôi đã hiểu, bắt đầu',
+  '給分參考：3 分代表該做的都有做到；4 分、5 分請想得出具體的例子；1 分、2 分代表明顯需要改進。': 'Gợi ý chấm điểm: 3 điểm nghĩa là đã làm được những việc cần làm; 4 và 5 điểm thì hãy nghĩ ra được ví dụ cụ thể; 1 và 2 điểm nghĩa là cần cải thiện rõ rệt.',
   '是': 'Có', '否': 'Không', '低': 'Thấp', '中': 'Trung bình', '高': 'Cao',
   '最佳支援': 'Hỗ trợ tốt nhất', '專業可靠': 'Chuyên nghiệp, đáng tin', '溫暖貼心': 'Ấm áp, chu đáo', '創意點子': 'Ý tưởng sáng tạo', '使命必達': 'Luôn hoàn thành nhiệm vụ'
 };
@@ -215,7 +231,7 @@ function load() {
   app.innerHTML = '<p class="center muted">' + t('載入中…') + '</p>';
   return call('boot').then(function (d) {
     D = d; if (!lang) lang = d.me.lang === 'vi' ? 'vi' : 'zh';
-    view = { name: 'home' }; render();
+    view = { name: store(introKey()) ? 'home' : 'intro' }; render();
   }).catch(function (e) {
     if (e.code === 'SESSION') return;
     app.innerHTML = '<div class="center stack"><div class="brand">enchantée</div><h1>' + t('無法開啟') + '</h1><p class="muted">' + esc(e.message) + '</p><button class="btn" data-reload="1">' + t('重新整理') + '</button></div>';
@@ -254,6 +270,20 @@ function doLogin(act, btn) {
   req.then(function () { busy = false; }).catch(function (e) { busy = false; toast(e.message); render(); });
 }
 
+/* ───── 評核方式說明 ───── */
+function introKey() { return 'pr:intro:' + D.cfg.year + ':' + D.me.id; }
+function viewIntro() {
+  var w = D.cfg.weights, sec = function (title, body) { return '<div class="card"><h3>' + t(title) + '</h3>' + body + '</div>'; };
+  var todo = TASKS.filter(function (x) { return D.tasks[x[0]] !== 'na'; }).map(function (x) { return '<li>' + t(x[1]) + '</li>'; }).join('');
+  var h = langBar() + '<div><h1>' + t('今年的評核方式') + '</h1><p class="muted">' + t('{0} 年度績效評核', esc(D.cfg.year)) + (D.cfg.deadline ? '　' + t('截止日 {0}', esc(D.cfg.deadline)) : '') + '</p></div>';
+  h += sec('為什麼今年換新的方式', '<p>' + t('過去的年終主要靠主管的印象。今年我們希望更公平，也希望聽見每個人的聲音：你今年做得有沒有成就感、和團隊合作開不開心、需要公司幫什麼忙。') + '</p>');
+  h += sec('你需要做的事', '<ol style="margin:0;padding-left:1.4em">' + todo + '</ol><p class="muted">' + t('全部約 20 分鐘，可以分次填寫。') + '</p>');
+  if (!D.me.isCEO) h += sec('分數怎麼算', '<p>' + (D.me.rated ? t('主管評 {0}%、同儕回饋 {1}%、自評 {2}%，換算成 S／A／B／C 四個等第，作為年終的依據。心聲問卷和感謝卡不計分。', w.mgr, w.peer, w.self) : t('你今年不參加等第評核，只需要填心聲問卷和感謝卡。')) + '</p>');
+  h += sec('誰看得到什麼', '<p>' + (D.me.rated ? t('自評：你的主管和執行長。') + '<br>' + t('心聲問卷、同儕回饋：只有執行長，主管看不到。') : t('心聲問卷：只有執行長，主管看不到。')) + '<br>' + t('感謝卡：會具名送給對方。') + '</p>');
+  if (D.me.rated) h += sec('之後會發生什麼', '<p>' + t('截止後，主管會和你一對一談今年的回饋與明年的方向。') + '</p>');
+  return h + '<button class="btn" data-go="home">' + t('我了解了，開始填寫') + '</button>';
+}
+
 /* ───── 首頁 ───── */
 var TASKS = [
   ['self', '自評', '回顧今年的成果與成長，約 8 分鐘', 'self'],
@@ -283,7 +313,7 @@ function viewHome() {
     }).join('') : '<p class="muted">' + t('目前還沒有收到感謝卡。') + '</p>') + '</div>';
   }
   if (D.me.isCEO) h += '<button class="btn" data-go="dash">' + t('開啟執行長儀表板') + '</button>';
-  return h + '<button class="back" data-logout="1" style="align-self:center">' + t('登出') + '</button>';
+  return h + '<div class="row" style="justify-content:center;gap:24px"><button class="back" data-go="intro">' + t('今年的評核方式') + '</button><button class="back" data-logout="1">' + t('登出') + '</button></div>';
 }
 
 /* ───── 通用問卷 ───── */
@@ -312,7 +342,8 @@ function fieldHtml(f) {
   return h + '</div>';
 }
 function viewForm() {
-  var h = '<button class="back" data-go="' + F.backTo + '">' + t('‹ 返回') + '</button><div><h1>' + esc(F.title) + '</h1><p class="muted">' + F.intro + '</p></div>' + F.extra;
+  var h = '<button class="back" data-go="' + F.backTo + '">' + t('‹ 返回') + '</button><div><h1>' + esc(F.title) + '</h1><p class="muted">' + F.intro + '</p></div>' + F.extra +
+    ((F.form === 'self' || F.form === 'mgr') ? '<div class="notice info">' + t('給分參考：3 分代表該做的都有做到；4 分、5 分請想得出具體的例子；1 分、2 分代表明顯需要改進。') + '</div>' : '');
   var group = null, open = false;
   F.fields.forEach(function (f) {
     var g = f.group || '';
@@ -501,7 +532,7 @@ function dashResult() {
     (over.length ? '<div class="notice">' + over.join('、') + ' 等人數已超過比例上限，請確認是否調整。</div>' : '') +
     (m.S === null ? '<p class="muted small">尚未設定各等第的年終月數，請到試算表「設定」工作表填寫「月數_S」等四項。</p>' : '') + '</div>';
   h += '<div class="card"><h3>個人結果（依總分排序）</h3><p class="muted small">下拉選單可調整最終等第，未調整者採系統建議。</p>' + rated.map(function (p) {
-    return '<div class="prow"><span class="dot ' + p.light + '" title="關懷燈號"></span>' + who(p) +
+    return '<div class="prow"><span class="dot ' + p.light + '" title="關懷燈號"></span><div style="flex:1;min-width:0">' + who(p) + (p.mgr && p.mgr.summary ? '<p class="small muted">' + esc(p.mgr.summary) + '</p>' : '') + '</div>' +
       '<span class="num">' + fmt(p.score.total) + '</span>' +
       '<select data-final="' + esc(p.id) + '" aria-label="' + esc(p.name) + ' 最終等第">' + ['', 'S', 'A', 'B', 'C'].map(function (g) {
         var sel = (p.calibrated ? p.final : '') === g;
@@ -574,7 +605,8 @@ function render() {
   if (v === 'self' && !F) openForm('self', D.me.id, '自評', '請誠實回顧今年的表現。主管與執行長會看到這份內容。', 'home');
   if (v === 'voice' && !F) openForm('voice', D.me.id, '心聲問卷', '這份問卷<b>只有執行長看得到</b>，您的主管看不到，也不會影響年終。請放心說真話。', 'home');
   if (F && F.fields && (v === 'self' || v === 'voice')) { F.title = t(v === 'self' ? '自評' : '心聲問卷'); F.intro = t(v === 'self' ? '請誠實回顧今年的表現。主管與執行長會看到這份內容。' : '這份問卷<b>只有執行長看得到</b>，您的主管看不到，也不會影響年終。請放心說真話。'); }
-  app.innerHTML = v === 'home' ? viewHome() : (v === 'self' || v === 'voice' || v === 'form') ? viewForm() :
+  if (v === 'home') store(introKey(), '1');
+  app.innerHTML = v === 'home' ? viewHome() : v === 'intro' ? viewIntro() : (v === 'self' || v === 'voice' || v === 'form') ? viewForm() :
     v === 'peerList' ? viewPeerList() : v === 'assignList' ? viewAssignList() : v === 'assign' ? viewAssign() : v === 'thanks' ? viewThanks() : v === 'mgrList' ? viewMgrList() :
     v === 'dash' ? viewDash() : v === 'person' ? viewPerson() : '';
 }

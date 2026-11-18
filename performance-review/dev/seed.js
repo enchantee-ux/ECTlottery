@@ -69,7 +69,7 @@ function seed({ fill = true } = {}) {
       if (b.tasks.voice !== 'na' && id !== 'E007') {
         const low = id === 'E003' || id === 'E010';
         must(call('save', { token: t, form: 'voice', target: id, answers: Object.assign(
-          scores(['v1', 'v2', 'v3', 'v4', 'v5', 'v6', 'v7', 'v8', 'v9'], low ? 2 : 4),
+          scores(['v1', 'v2', 'v3', 'v4', 'v5', 'v6', 'v7', 'v8', 'v9', 'v10', 'v11'], low ? 2 : 4),
           { happy: '春酒抽到獎', change: low ? '希望排班可以更早公布' : '', private: low ? '=最近在考慮其他機會' : '', meet: low ? '是' : '否' }) }));
       }
       b.peers.forEach(p => must(call('save', { token: t, form: 'peer', target: p.id,
@@ -77,13 +77,13 @@ function seed({ fill = true } = {}) {
       const others = b.directory.filter((_, i) => (i + idx) % 4 === 0).slice(0, 3);
       must(call('save', { token: t, form: 'thanks', answers: { cards: others.map(o => ({ to: o.id, tag: '最佳支援', text: '謝謝你在旺季幫忙頂班' })) } }));
       b.reports.forEach((r, ri) => must(call('save', { token: t, form: 'mgr', target: r.id, answers: Object.assign(
-        scores(sk, 3 + ((idx + ri) % 3)), { kpi: '檔期目標達成 105%', strength: '主動補位，品質穩定', improve: '回報可以更即時',
+        scores(sk, 3 + ((idx + ri) % 3)), { kpi: '檔期目標達成 105%', strength: '主動補位，品質穩定', summary: '穩定可靠，是團隊的重要戰力', improve: '回報可以更即時',
           develop: '建議接手新人訓練', risk: ri === 2 ? '高' : '低', keyman: ri === 0 ? '是' : '否' }) })));
     });
     const ceo = must(call('boot', { token: tokens.E000 }));
     ceo.reports.forEach((r, i) => must(call('save', { token: tokens.E000, form: 'mgr', target: r.id, answers: {
       r1: 5, r2: 5 - (i % 2), r3: 4, s1: 5, s2: 4, t1: 4 + (i % 2), t2: 4, a1: 5, a2: 5,
-      kpi: '', strength: '帶領部門達成年度目標', improve: '', develop: '', risk: '低', keyman: '是' } })));
+      kpi: '', strength: '帶領部門達成年度目標', summary: '帶人帶心，部門績效亮眼', improve: '', develop: '', risk: '低', keyman: '是' } })));
   }
   return { be, tokens, call, lastCode };
 }
