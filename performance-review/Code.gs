@@ -182,6 +182,8 @@ function onOpen() {
 }
 
 function setup() {
+  clearMemo_();
+  ALL_TABLES.forEach(touch_);
   ensureSheet_(SHEETS.settings, ['項目', '設定值', '說明']);
   const have = {};
   readTable_(SHEETS.settings).forEach(r => { have[String(r['項目'])] = true; });
@@ -199,6 +201,8 @@ function setup() {
 }
 
 function writeResults() {
+  clearMemo_();
+  ALL_TABLES.forEach(touch_);
   const ctx = ctx_();
   const res = computeResults_(ctx);
   const sh = ss_().getSheetByName(SHEETS.result);
@@ -222,6 +226,7 @@ function doGet() {
 
 function api(action, payloadJson) {
   try {
+    clearMemo_();
     const p = JSON.parse(payloadJson || '{}');
     LANG = p.lang === 'vi' ? 'vi' : 'zh';
     const handlers = { requestCode: requestCode_, verifyCode: verifyCode_, logout: logout_,
@@ -305,7 +310,8 @@ function logout_(p) {
 
 /* ───────────── 試算表存取 ───────────── */
 
-function ss_() { return SpreadsheetApp.getActiveSpreadsheet(); }
+let SS_ = null;
+function ss_() { return SS_ || (SS_ = SpreadsheetApp.getActiveSpreadsheet()); }
 
 function headerOf_(sh) {
   const n = sh.getLastColumn();
@@ -321,16 +327,60 @@ function ensureSheet_(name, headers) {
   return true;
 }
 
-function readTable_(name) {
+/*
+ * 讀取加速：每張工作表讀出後存進快取，之後的請求直接取用，不必每次重讀整份試算表。
+ * 經由本系統的寫入會立即清掉該表的快取；執行長直接在試算表手動修改「設定」「名冊」，最慢 60 秒後生效。
+ */
+const MEMO_ = {};
+const CACHE_PREFIX = 'T2_';
+const MANUAL_SHEETS = [SHEETS.settings, SHEETS.roster];
+const ALL_TABLES = [SHEETS.settings, SHEETS.roster, SHEETS.self, SHEETS.mgr, SHEETS.peer, SHEETS.thanks, SHEETS.voice, SHEETS.calib];
+
+function clearMemo_() { Object.keys(MEMO_).forEach(k => { delete MEMO_[k]; }); }
+function touch_(name) {
+  delete MEMO_[name];
+  try { CacheService.getScriptCache().remove(CACHE_PREFIX + name); } catch (e) { /* 快取失敗不影響功能 */ }
+}
+function prime_() {
+  try {
+    const got = CacheService.getScriptCache().getAll(ALL_TABLES.filter(n => !MEMO_[n]).map(n => CACHE_PREFIX + n));
+    Object.keys(got).forEach(k => { MEMO_[k.slice(CACHE_PREFIX.length)] = JSON.parse(got[k]); });
+  } catch (e) { /* 快取失敗就直接讀試算表 */ }
+}
+function plainCell_(v) {
+  if (Object.prototype.toString.call(v) !== '[object Date]') return v;
+  if (isNaN(v.getTime())) return '';
+  const z = n => ('0' + n).slice(-2);
+  return v.getFullYear() + '-' + z(v.getMonth() + 1) + '-' + z(v.getDate()) + ' ' + z(v.getHours()) + ':' + z(v.getMinutes()) + ':' + z(v.getSeconds());
+}
+function readSheet_(name) {
   const sh = ss_().getSheetByName(name);
-  if (!sh || sh.getLastRow() < 2) return [];
+  if (!sh) return [];
   const v = sh.getDataRange().getValues();
+  if (v.length < 2) return [];
   const h = v[0].map(x => String(x).trim());
   return v.slice(1).map((r, i) => {
     const o = { _row: i + 2 };
-    h.forEach((k, j) => { if (k) o[k] = r[j]; });
+    h.forEach((k, j) => { if (k) o[k] = plainCell_(r[j]); });
     return o;
   }).filter(o => h.some(k => k && o[k] !== '' && o[k] !== null));
+}
+// fresh = true 時一定重讀試算表（寫入前定位列號用，避免依據過期資料寫錯列）
+function readTable_(name, fresh) {
+  if (!fresh && MEMO_[name]) return MEMO_[name];
+  let rows = null;
+  if (!fresh) {
+    try { const raw = CacheService.getScriptCache().get(CACHE_PREFIX + name); if (raw) rows = JSON.parse(raw); } catch (e) { rows = null; }
+  }
+  if (!rows) {
+    rows = readSheet_(name);
+    try {
+      const json = JSON.stringify(rows);
+      if (json.length < 90000) CacheService.getScriptCache().put(CACHE_PREFIX + name, json, MANUAL_SHEETS.indexOf(name) >= 0 ? 60 : 600);
+    } catch (e) { /* 快取失敗不影響功能 */ }
+  }
+  MEMO_[name] = rows;
+  return rows;
 }
 
 // 防止使用者輸入的文字被試算表當成公式執行
@@ -345,25 +395,29 @@ function rowValues_(sh, obj) {
 function appendRow_(name, arr) {
   const sh = ss_().getSheetByName(name);
   sh.getRange(sh.getLastRow() + 1, 1, 1, arr.length).setValues([arr.map(safe_)]);
+  touch_(name);
 }
 
 function appendObj_(name, obj) {
   const sh = ss_().getSheetByName(name);
   const vals = rowValues_(sh, obj);
   sh.getRange(sh.getLastRow() + 1, 1, 1, vals.length).setValues([vals]);
+  touch_(name);
 }
 
 function upsert_(name, match, obj) {
   const sh = ss_().getSheetByName(name);
-  const hit = readTable_(name).filter(match)[0];
+  const hit = readTable_(name, true).filter(match)[0];
   if (!hit) return appendObj_(name, obj);
   const vals = rowValues_(sh, obj);
   sh.getRange(hit._row, 1, 1, vals.length).setValues([vals]);
+  touch_(name);
 }
 
 function deleteRows_(name, match) {
   const sh = ss_().getSheetByName(name);
-  readTable_(name).filter(match).map(r => r._row).sort((a, b) => b - a).forEach(r => sh.deleteRow(r));
+  readTable_(name, true).filter(match).map(r => r._row).sort((a, b) => b - a).forEach(r => sh.deleteRow(r));
+  touch_(name);
 }
 
 /* ───────────── 設定與名冊 ───────────── */
@@ -403,6 +457,7 @@ function monthsBetween_(from, to) {
 }
 
 function ctx_() {
+  prime_();
   const settings = readSettings_();
   const year = String(settings['年度']).trim();
   const base = toDate_(settings['評核基準日']) || new Date(Number(year), 11, 31);
@@ -697,9 +752,10 @@ function assign_(p) {
     if (poolPeople.some(x => x.dept !== target.dept) && !chosen.some(x => x.dept !== target.dept)) throw err_('請至少指定 1 位其他部門的同事', 'Vui lòng chỉ định ít nhất 1 đồng nghiệp khác bộ phận.');
     const sh = ss_().getSheetByName(SHEETS.roster);
     const col = headerOf_(sh).indexOf('同儕評核人') + 1;
-    const row = readTable_(SHEETS.roster).filter(r => String(r['編號']).trim() === target.id)[0];
+    const row = readTable_(SHEETS.roster, true).filter(r => String(r['編號']).trim() === target.id)[0];
     if (!col || !row) throw new Error('名冊缺少「同儕評核人」欄');
     sh.getRange(row._row, col, 1, 1).setValues([[ids.join(',')]]);
+    touch_(SHEETS.roster);
     return { saved: true };
   } finally {
     lock.releaseLock();

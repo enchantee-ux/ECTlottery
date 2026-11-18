@@ -24,6 +24,7 @@ function seed({ fill = true } = {}) {
     if (r[0] === '截止日') r[1] = '2026-12-11';
     if (r[0] === '月數_S') r[1] = 3; if (r[0] === '月數_A') r[1] = 2; if (r[0] === '月數_B') r[1] = 1.5; if (r[0] === '月數_C') r[1] = 1;
   });
+  be.expireCache();
   const call = (action, payload) => JSON.parse(be.api.api(action, JSON.stringify(payload)));
   const lastCode = () => be.outbox[be.outbox.length - 1].subject.match(/\d{6}/)[0];
   const tokens = {};

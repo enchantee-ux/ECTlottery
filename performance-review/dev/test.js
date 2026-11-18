@@ -77,7 +77,19 @@ function logic() {
   assert.strictEqual(be.sheets['自評'].data.length, before);
   be.api.writeResults();
   assert.strictEqual(be.sheets['結果'].data.length, 1 + rated.length);
-  be.sheets['設定'].data.find(r => r[0] === '開放填寫')[1] = '否';
+  // 快取：連續讀取不重讀試算表；經系統寫入後立刻看得到新資料
+  let reads = 0; const sh = be.sheets['自評']; const orig = sh.getDataRange.bind(sh); sh.getDataRange = () => { reads++; return orig(); };
+  call('boot', { token: tokens.E002 }); call('boot', { token: tokens.E003 }); call('dashboard', { token: tokens.E000 });
+  assert(reads <= 1, '讀取走快取，實際重讀 ' + reads + ' 次');
+  const changed = Object.assign({}, mine, { goal: '快取測試目標' });
+  assert.strictEqual(call('save', { token: tokens.E002, form: 'self', target: 'E002', answers: changed }).data.self.goal, '快取測試目標', '存檔回傳最新資料');
+  assert.strictEqual(call('dashboard', { token: tokens.E000 }).data.people.find(p => p.id === 'E002').self.goal, '快取測試目標');
+  // 手動刪列後再存檔，不會依過期的列號寫錯人
+  const victim = be.sheets['自評'].data.findIndex(r => r[2] === 'E003'); be.sheets['自評'].data.splice(victim, 1);
+  assert(call('save', { token: tokens.E002, form: 'self', target: 'E002', answers: changed }).ok);
+  assert.strictEqual(be.sheets['自評'].data.filter(r => r[2] === 'E002').length, 1);
+  assert.strictEqual(be.sheets['自評'].data.filter(r => r[2] === 'E004').length, 1, '其他人的列沒有被覆蓋');
+  be.sheets['設定'].data.find(r => r[0] === '開放填寫')[1] = '否'; be.expireCache();
   assert(!call('save', { token: tokens.E002, form: 'self', target: 'E002', answers: mine }).ok);
   console.log('logic ok', JSON.stringify(d.dist), 'caps', JSON.stringify(d.caps),
     'lights', ['red', 'yellow', 'green'].map(c => d.people.filter(p => p.light === c).length).join('/'));
