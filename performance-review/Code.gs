@@ -7,7 +7,8 @@
 const SHEETS = {
   settings: '設定', roster: '名冊',
   self: '自評', mgr: '主管評', peer: '同儕評', thanks: '感謝卡', voice: '心聲',
-  calib: '校準', result: '結果'
+  calib: '校準', result: '結果',
+  up: '主管回饋', upDone: '主管回饋已填'
 };
 
 const ROSTER_HEADERS = ['編號', '姓名', '部門', '職稱', '直屬主管', '到職日', '角色', 'Email', '語言', '參加評等', '同儕評核人'];
@@ -31,6 +32,7 @@ const DEFAULT_SETTINGS = [
   ['來源_主管', 60, '三種評分來源的權重，合計 100'],
   ['來源_同儕', 25, ''],
   ['來源_自評', 15, ''],
+  ['主管回饋最少份數', 3, '某位主管收到的匿名回饋少於此份數時，儀表板不顯示內容，避免被認出是誰寫的'],
   ['同儕最少人數', 3, '主管要為每位直屬同仁指定的同儕評核人數；實際評分者少於此人數時不計同儕分數，權重併回主管評'],
   ['同儕回饋最少人數', 0, '除了主管指定的對象外，每位同仁至少還要自選幾位同事填寫同儕回饋。0 代表只需完成指定對象'],
   ['登入有效天數', 30, '同仁用 Email 驗證碼登入後，幾天內不必重新登入'],
@@ -100,6 +102,15 @@ const FIELD_VI = {
   v10: ['Lương và phúc lợi', 'Tôi thấy mức lương và phúc lợi hiện tại là hợp lý'],
   v11: ['Kỳ vọng công việc', 'Tôi hiểu rõ công ty và quản lý mong đợi gì ở công việc của tôi'],
   summary: ['Tổng kết một câu', 'Dùng một câu để tổng kết biểu hiện của nhân viên này trong năm nay'],
+  u1: ['Giao việc rõ ràng', 'Khi giao việc, quản lý nói rõ cần làm gì và khi nào cần xong'],
+  u2: ['Công bằng', 'Quản lý đối xử công bằng với mọi người, không thiên vị'],
+  u3: ['Tôn trọng', 'Quản lý nói năng và hành xử tôn trọng tôi'],
+  u4: ['Hỗ trợ và chỉ dẫn', 'Khi tôi gặp khó khăn, quản lý giúp đỡ hoặc chỉ dẫn tôi'],
+  u5: ['Phản hồi', 'Tôi làm tốt hay chưa tốt, quản lý đều cho tôi biết'],
+  u6: ['Sẵn sàng lắng nghe', 'Quản lý sẵn sàng lắng nghe ý kiến của tôi'],
+  u7: ['Tổng thể', 'Tôi muốn tiếp tục làm việc với quản lý này'],
+  good: ['Điều quản lý làm tốt', 'Điều quản lý làm tốt và bạn mong tiếp tục duy trì'],
+  better: ['Điều mong quản lý điều chỉnh', 'Một điều bạn mong quản lý điều chỉnh'],
   happy: ['Điều vui nhất năm nay', ''],
   change: ['Một điều muốn thay đổi nhất', 'Nếu có thể thay đổi một điều ở công ty hoặc trong công việc'],
   private: ['Điều muốn nói với Giám đốc điều hành', 'Bạn có thể nói bất cứ điều gì, chỉ Giám đốc điều hành xem được'],
@@ -169,6 +180,20 @@ const FORMS = {
     { k: 'meet', label: '希望與執行長一對一面談', desc: '', type: 'choice', options: ['是', '否'], req: true, group: '想說的話' }] }
 };
 
+// 給主管的回饋：匿名。內容與「誰填過」分開存放，內容列不含填寫人與時間，並以隨機位置寫入
+FORMS.up = { sheet: SHEETS.up, fields: [
+  { k: 'u1', label: '交辦清楚', desc: '主管交代工作時，會說清楚要做什麼、什麼時候要', type: 'score', req: true, scale: AGREE },
+  { k: 'u2', label: '公平', desc: '主管對待每個人公平，不偏心', type: 'score', req: true, scale: AGREE },
+  { k: 'u3', label: '尊重', desc: '主管說話和做事都尊重我', type: 'score', req: true, scale: AGREE },
+  { k: 'u4', label: '支持與教導', desc: '我遇到困難時，主管會幫忙或教我', type: 'score', req: true, scale: AGREE },
+  { k: 'u5', label: '給回饋', desc: '我做得好或做不好，主管都會讓我知道', type: 'score', req: true, scale: AGREE },
+  { k: 'u6', label: '願意聽', desc: '主管願意聽我的意見', type: 'score', req: true, scale: AGREE },
+  { k: 'u7', label: '整體', desc: '我願意繼續跟這位主管一起工作', type: 'score', req: true, scale: AGREE },
+  { k: 'good', label: '做得好的事', desc: '主管做得好、希望繼續保持的事', type: 'text' },
+  { k: 'better', label: '希望調整的事', desc: '希望主管調整的一件事', type: 'text' }] };
+const UP_HEADERS = ['年度', '主管編號', '主管'].concat(FORMS.up.fields.map(f => f.label));
+const UP_DONE_HEADERS = ['年度', '填寫人編號', '填寫人', '狀態'];
+
 function hdr_(f) { return f.h || f.label; }
 function formHeaders_(form) {
   return KEY_HEADERS.concat(FORMS[form].fields.map(hdr_));
@@ -202,6 +227,8 @@ function setup() {
   }
   ['self', 'mgr', 'peer', 'voice'].forEach(f => ensureSheet_(FORMS[f].sheet, formHeaders_(f)));
   ensureSheet_(SHEETS.thanks, THANKS_HEADERS);
+  ensureSheet_(SHEETS.up, UP_HEADERS);
+  ensureSheet_(SHEETS.upDone, UP_DONE_HEADERS);
   ensureSheet_(SHEETS.calib, CALIB_HEADERS);
   ensureSheet_(SHEETS.result, RESULT_HEADERS);
 }
@@ -340,7 +367,7 @@ function ensureSheet_(name, headers) {
 const MEMO_ = {};
 const CACHE_PREFIX = 'T2_';
 const MANUAL_SHEETS = [SHEETS.settings, SHEETS.roster];
-const ALL_TABLES = [SHEETS.settings, SHEETS.roster, SHEETS.self, SHEETS.mgr, SHEETS.peer, SHEETS.thanks, SHEETS.voice, SHEETS.calib];
+const ALL_TABLES = [SHEETS.settings, SHEETS.roster, SHEETS.self, SHEETS.mgr, SHEETS.peer, SHEETS.thanks, SHEETS.voice, SHEETS.calib, SHEETS.up, SHEETS.upDone];
 
 function clearMemo_() { Object.keys(MEMO_).forEach(k => { delete MEMO_[k]; }); }
 function touch_(name) {
@@ -506,6 +533,15 @@ function ctx_() {
     from: String(r['填寫人編號']).trim(), to: String(r['對象編號']).trim(),
     tag: String(r['標籤'] || ''), text: String(r['內容'] || '')
   })).filter(r => byId[r.from] && byId[r.to]);
+  ctx.up = readTable_(SHEETS.up).filter(r => String(r['年度']).trim() === year).map(r => {
+    const a = {};
+    FORMS.up.fields.forEach(f => { a[f.k] = f.type === 'score' ? num_(r[f.label], null) : String(r[f.label] || ''); });
+    return { to: String(r['主管編號']).trim(), a: a };
+  }).filter(r => byId[r.to]);
+  ctx.upDone = {};
+  readTable_(SHEETS.upDone).filter(r => String(r['年度']).trim() === year).forEach(r => {
+    ctx.upDone[String(r['填寫人編號']).trim()] = String(r['狀態'] || '').trim();
+  });
   ctx.calib = {};
   readTable_(SHEETS.calib).filter(r => String(r['年度']).trim() === year).forEach(r => {
     ctx.calib[String(r['編號']).trim()] = { grade: String(r['最終等第'] || '').trim(), note: String(r['備註'] || '') };
@@ -551,7 +587,8 @@ function minPeerGive_(ctx, me) {
 
 function tasks_(ctx, me) {
   const st = ok => ok ? 'done' : 'todo';
-  const t = { self: 'na', voice: 'na', peer: 'na', thanks: 'na', assign: 'na', mgr: 'na' };
+  const t = { self: 'na', voice: 'na', up: 'na', peer: 'na', thanks: 'na', assign: 'na', mgr: 'na' };
+  if (ctx.byId[me.mgrId]) t.up = st(!!ctx.upDone[me.id]);
   if (me.rated) t.self = st(ctx.self.some(r => r.from === me.id));
   if (!me.isCEO) t.voice = st(ctx.voice.some(r => r.from === me.id));
   if (canPeer_(ctx, me)) {
@@ -617,6 +654,7 @@ function boot_(p) {
       pool: peerPool_(ctx, r).map(x => Object.assign(brief_(x), {
         load: ctx.people.filter(o => o.id !== r.id && o.raterIds.indexOf(x.id) >= 0).length }))
     })),
+    up: ctx.byId[me.mgrId] ? { target: Object.assign(brief_(ctx.byId[me.mgrId]), { isCEO: ctx.byId[me.mgrId].isCEO }), state: ctx.upDone[me.id] || '' } : null,
     received: yes_(s['公開感謝卡']) ? ctx.thanks.filter(r => r.to === me.id).map(r => ({
       from: ctx.byId[r.from].name, dept: ctx.byId[r.from].dept, tag: r.tag, text: r.text })) : null
   };
@@ -706,6 +744,7 @@ function save_(p) {
     }
 
     if (!FORMS[form]) throw err_('不支援的問卷', 'Biểu mẫu không hợp lệ.');
+    if (form === 'up') return saveUp_(ctx, me, p.answers || {});
     let target = me;
     if (form === 'self') {
       if (!me.rated) throw err_('您本年度不需要填寫自評', 'Năm nay bạn không cần tự đánh giá.');
@@ -737,6 +776,42 @@ function save_(p) {
 }
 
 const MAX_RATERS = 5, MAX_PER_DEPT = 2, RATER_LOAD_WARN = 8;
+
+function trOnly_(text) {
+  const both = withTr_(text);
+  const i = both.indexOf(TR_MARK);
+  return i < 0 ? both : both.slice(i + TR_MARK.length);
+}
+
+function saveUp_(ctx, me, answers) {
+  const boss = ctx.byId[me.mgrId];
+  if (!boss) throw err_('您沒有需要回饋的直屬主管', 'Bạn không có quản lý trực tiếp để nhận xét.');
+  ensureSheet_(SHEETS.up, UP_HEADERS);
+  ensureSheet_(SHEETS.upDone, UP_DONE_HEADERS);
+  const mine = r => String(r['年度']).trim() === ctx.year && String(r['填寫人編號']).trim() === me.id;
+  const state = (readTable_(SHEETS.upDone, true).filter(mine)[0] || {})['狀態'];
+  if (state === '已填') throw err_('您已經送出過了。這是匿名問卷，送出後無法修改', 'Bạn đã gửi rồi. Đây là khảo sát ẩn danh, không thể chỉnh sửa sau khi gửi.');
+  const mark = st => upsert_(SHEETS.upDone, mine, { '年度': ctx.year, '填寫人編號': me.id, '填寫人': me.name, '狀態': st });
+  if (answers.skip) { mark('略過'); return { saved: true }; }
+  const row = { '年度': ctx.year, '主管編號': boss.id, '主管': boss.name };
+  FORMS.up.fields.forEach(f => {
+    if (f.type === 'score') {
+      const n = Number(answers[f.k]);
+      if (!(n >= 1 && n <= 5 && Math.floor(n) === n)) throw err_('「' + f.label + '」尚未評分', 'Chưa chấm điểm: ' + label_(f));
+      row[f.label] = n;
+    } else row[f.label] = trOnly_(cleanText_(answers[f.k], 1000));   // 只存中文，避免從語言認出是誰
+  });
+  // 插在隨機位置，讓列的順序對不上送出的先後
+  const sh = ss_().getSheetByName(SHEETS.up);
+  const n = Math.max(0, sh.getLastRow() - 1);
+  const pos = Math.floor(Math.random() * (n + 1));
+  if (pos < n) sh.insertRowBefore(pos + 2);
+  const vals = rowValues_(sh, row);
+  sh.getRange(pos + 2, 1, 1, vals.length).setValues([vals]);
+  touch_(SHEETS.up);
+  mark('已填');
+  return { saved: true };
+}
 
 function assign_(p) {
   const lock = LockService.getScriptLock();
@@ -930,9 +1005,27 @@ function dashboard_(p) {
   return {
     cfg: { year: ctx.year, open: yes_(s['開放填寫']), deadline: dateText_(s['截止日']) },
     forms: clientForms_(), dims: DIMENSIONS.map(d => ({ key: d.key, name: d.name })),
-    people: res.people, dist: res.dist, caps: res.caps, ratedCount: res.ratedCount, mood: mood,
+    people: res.people, dist: res.dist, caps: res.caps, ratedCount: res.ratedCount, mood: mood, upward: upward_(ctx),
     months: { S: num_(s['月數_S'], null), A: num_(s['月數_A'], null), B: num_(s['月數_B'], null), C: num_(s['月數_C'], null) }
   };
+}
+
+function upward_(ctx) {
+  const min = num_(ctx.settings['主管回饋最少份數'], 3);
+  return ctx.people.filter(m => ctx.people.some(x => x.mgrId === m.id)).map(m => {
+    const team = ctx.people.filter(x => x.mgrId === m.id);
+    const rows = ctx.up.filter(r => r.to === m.id);
+    const out = { id: m.id, name: m.name, dept: m.dept, team: team.length, n: rows.length, min: min,
+      skipped: team.filter(x => ctx.upDone[x.id] === '略過').length, pending: team.filter(x => !ctx.upDone[x.id]).length, shown: rows.length >= min };
+    if (out.shown) {
+      out.avg = {};
+      FORMS.up.fields.filter(f => f.type === 'score').forEach(f => { out.avg[f.k] = round1_(avg_(rows.map(r => r.a[f.k]))); });
+      // 兩題文字各自排序後分開列出，不讓同一個人的兩段話和分數被連在一起
+      out.good = rows.map(r => r.a.good).filter(String).sort();
+      out.better = rows.map(r => r.a.better).filter(String).sort();
+    }
+    return out;
+  });
 }
 
 function setFinal_(p) {

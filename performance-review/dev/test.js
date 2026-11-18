@@ -84,6 +84,24 @@ function logic() {
   assert(vs.data[0].indexOf('薪資福利') >= 0, '補上欄名');
   const care = call('dashboard', { token: tokens.E000 }).data.people.find(p => p.id === 'E002');
   assert.strictEqual(care.voice.v10, 2); assert(care.flags.some(f => f.text.includes('薪資福利')));
+  // 給主管的回饋：匿名
+  const upSheet = be.sheets['主管回饋'], doneSheet = be.sheets['主管回饋已填'];
+  assert(!upSheet.data[0].some(h => /填寫人|時間/.test(h)), '內容表沒有填寫人與時間欄');
+  assert(!upSheet.data.slice(1).some(r => r.some(c => /^E\d{3}$/.test(String(c)) && !['E000', 'E001', 'E005', 'E009', 'E013'].includes(String(c)))), '內容列只出現主管編號');
+  assert(!doneSheet.data[0].includes('時間'));
+  const b3 = call('boot', { token: tokens.E003 }).data;
+  assert.strictEqual(b3.up.target.id, 'E001'); assert.strictEqual(b3.tasks.up, 'done');
+  assert(!JSON.stringify(b3).includes('排班希望'), '同仁讀不到任何回饋內容');
+  assert(!JSON.stringify(call('boot', { token: tokens.E001 }).data).includes('交辦清楚，有問題'), '主管讀不到部屬的回饋');
+  assert(/已經送出/.test(call('save', { token: tokens.E003, form: 'up', answers: { u1: 1, u2: 1, u3: 1, u4: 1, u5: 1, u6: 1, u7: 1 } }).error), '送出後不能再送');
+  const skipper = Object.keys(tokens).find(id => { const r = doneSheet.data.find(x => x[1] === id); return r && r[3] === '略過'; });
+  assert(call('save', { token: tokens[skipper], form: 'up', answers: { u1: 5, u2: 5, u3: 5, u4: 5, u5: 5, u6: 5, u7: 5, good: 'Quản lý rất tận tâm', better: '' } }).ok, '略過後仍可補填');
+  assert(!JSON.stringify(upSheet.data).includes('Quản lý'), '越南文只存中文翻譯');
+  assert(!call('save', { token: tokens.E000, form: 'up', answers: { skip: true } }).ok, '執行長沒有主管可評');
+  const upw = call('dashboard', { token: tokens.E000 }).data.upward;
+  assert.strictEqual(upw.length, 5); assert(upw.find(m => m.id === 'E000'), '執行長也被評');
+  upw.forEach(m => { assert.strictEqual(m.shown, m.n >= 3); if (!m.shown) assert(!m.avg && !m.good, '不足三份不回傳內容'); });
+  assert(upw.some(m => m.shown && m.avg.u1 >= 1));
   // 快取：連續讀取不重讀試算表；經系統寫入後立刻看得到新資料
   let reads = 0; const sh = be.sheets['自評']; const orig = sh.getDataRange.bind(sh); sh.getDataRange = () => { reads++; return orig(); };
   call('boot', { token: tokens.E002 }); call('boot', { token: tokens.E003 }); call('dashboard', { token: tokens.E000 });
@@ -141,6 +159,11 @@ async function ui(outDir) {
   await page.locator('[data-k="v9"][data-v="2"]').click();
   await page.locator('[data-k="meet"][data-c="是"]').click();
   await page.click('[data-submit]'); await page.waitForSelector('.task');
+  // 給主管的回饋
+  await page.click('[data-go="up"]'); await fillScores(); await page.fill('#f_good', '交辦清楚'); await shot('02b-up');
+  await page.click('[data-submit]'); await page.waitForSelector('text=確認送出');
+  await page.click('[data-submit]'); await page.waitForSelector('.task');
+  await page.click('[data-go="up"]'); await page.waitForSelector('text=你已經送出了'); await page.click('[data-go="home"]');
   // 同儕
   await page.click('[data-go="peerList"]'); await shot('03-peers');
   for (let i = 0; i < 3; i++) {
@@ -169,6 +192,7 @@ async function ui(outDir) {
     return (c.innerText.replace(/行銷|設計|生產|銷售|管理/g, '').match(/[\u4e00-\u9fff]+/g) || []).join(' '); }); assert.strictEqual(left, '', where); };
   await scan('心聲');
   await page.click('[data-go="home"]'); await scan('首頁');
+  await page.click('[data-go="up"]'); await scan('主管回饋'); await shot('08b-up-vi'); await page.click('[data-go="home"]');
   await page.click('[data-go="intro"]'); await scan('說明頁'); await shot('07b-intro-vi'); await page.click('[data-go="home"]');
   await page.click('[data-go="self"]'); await scan('自評'); await page.click('[data-go="home"]');
   await page.click('[data-go="peerList"]'); await scan('同儕清單');
@@ -224,7 +248,7 @@ async function ui(outDir) {
   await p2.reload();
   await p2.click('[data-go="home"]'); await p2.waitForSelector('[data-go="dash"]'); await p2.click('[data-go="dash"]');
   await p2.waitForSelector('.tabs');
-  const tabs = ['progress', 'result', 'care', 'thanks', 'mood'];
+  const tabs = ['progress', 'result', 'care', 'thanks', 'mood', 'up'];
   for (let i = 0; i < tabs.length; i++) {
     await p2.click('[data-tab="' + tabs[i] + '"]');
     if (outDir) await p2.screenshot({ path: path.join(outDir, '1' + i + '-dash-' + tabs[i] + '.png'), fullPage: true });

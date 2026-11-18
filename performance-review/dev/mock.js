@@ -34,6 +34,7 @@ class Sheet {
     };
   }
   deleteRow(r) { this.data.splice(r - 1, 1); }
+  insertRowBefore(r) { this.data.splice(r - 1, 0, []); }
   clearContents() { this.data = []; }
   setFrozenRows() {}
 }

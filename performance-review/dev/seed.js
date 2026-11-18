@@ -72,6 +72,9 @@ function seed({ fill = true } = {}) {
           scores(['v1', 'v2', 'v3', 'v4', 'v5', 'v6', 'v7', 'v8', 'v9', 'v10', 'v11'], low ? 2 : 4),
           { happy: '春酒抽到獎', change: low ? '希望排班可以更早公布' : '', private: low ? '=最近在考慮其他機會' : '', meet: low ? '是' : '否' }) }));
       }
+      if (b.up && idx % 5 !== 4) must(call('save', { token: t, form: 'up', answers: Object.assign(scores(['u1', 'u2', 'u3', 'u4', 'u5', 'u6', 'u7'], idx % 3 === 0 ? 3 : 4),
+        { good: '交辦清楚，有問題都願意教', better: idx % 2 ? '排班希望早一點公布' : '' }) }));
+      else if (b.up) must(call('save', { token: t, form: 'up', answers: { skip: true } }));
       b.peers.forEach(p => must(call('save', { token: t, form: 'peer', target: p.id,
         answers: Object.assign(scores(['p1', 'p2', 'p3', 'p4'], 4), { praise: '很可靠，交辦的事都有回音', better: '' }) })));
       const others = b.directory.filter((_, i) => (i + idx) % 4 === 0).slice(0, 3);
