@@ -294,10 +294,6 @@ function openForm(form, target, title, intro, backTo, extra) {
   F = { form: form, target: target, title: title, intro: intro, backTo: backTo, extra: extra || '',
     fields: fields, a: Object.assign({}, existing || getDraft(form, target) || {}), submitted: !!existing };
 }
-function kpiParse(s) {
-  var o = {}; String(s || '').split('\n').forEach(function (line) { var i = line.indexOf('：'); if (i > 0) o[line.slice(0, i)] = line.slice(i + 1); });
-  return o;
-}
 function fieldHtml(f) {
   var v = F.a[f.k], desc = L(f, 'desc'), sc = (lang === 'vi' && f.vscale) || f.scale;
   var h = '<div class="q" data-q="' + f.k + '"><div><span class="qlabel">' + esc(L(f, 'label')) + '</span>' + (f.req ? '<span class="req">＊</span>' : '') +
@@ -310,11 +306,6 @@ function fieldHtml(f) {
     h += '<div class="wrap">' + f.options.map(function (o) {
       return '<button type="button" class="chip ' + (v === o ? 'on' : '') + '" data-k="' + f.k + '" data-c="' + esc(o) + '">' + esc(t(o)) + '</button>';
     }).join('') + '</div>';
-  } else if (f.type === 'kpi') {
-    var kp = kpiParse(v), names = (byId(D.reports, F.target) || {}).kpis || [];
-    h += names.length ? names.map(function (n, i) {
-      return '<label class="small muted" for="kpi' + i + '">' + esc(n) + '</label><input type="text" id="kpi' + i + '" data-kpi="' + esc(n) + '" value="' + esc(kp[n] || '') + '">';
-    }).join('') : '<textarea id="f_' + f.k + '" data-t="' + f.k + '">' + esc(v || '') + '</textarea>';
   } else {
     h += '<textarea id="f_' + f.k + '" data-t="' + f.k + '" maxlength="2000">' + esc(v || '') + '</textarea>';
   }
@@ -632,10 +623,7 @@ app.addEventListener('input', function (e) {
   var tg = e.target;
   if (!F) return;
   if (tg.dataset.t) { F.a[tg.dataset.t] = tg.value; setDraft(F.form, F.target, F.a); }
-  else if (tg.dataset.kpi !== undefined) {
-    F.a.kpi = [].map.call(app.querySelectorAll('[data-kpi]'), function (i) { return i.value.trim() ? i.dataset.kpi + '：' + i.value.trim().replace(/\n/g, ' ') : ''; }).filter(String).join('\n');
-    setDraft(F.form, F.target, F.a);
-  } else if (tg.dataset.card !== undefined && tg.dataset.f) { F.cards[Number(tg.dataset.card)][tg.dataset.f] = tg.value; setDraft('thanks', 'all', F.cards); }
+  else if (tg.dataset.card !== undefined && tg.dataset.f) { F.cards[Number(tg.dataset.card)][tg.dataset.f] = tg.value; setDraft('thanks', 'all', F.cards); }
 });
 app.addEventListener('change', function (e) {
   var tg = e.target;

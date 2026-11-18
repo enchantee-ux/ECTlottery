@@ -184,11 +184,11 @@ async function ui(outDir) {
   assert.strictEqual(call('boot', { token: tokens.E003 }).data.peers.filter(p => p.assigned).length, 1, '被指定的人會看到對象');
   await page.click('[data-go="home"]'); await page.click('[data-go="mgrList"]');
   await page.locator('[data-report]').first().click(); await fillScores();
-  await page.fill('#kpi0', '營收成長 12%'); await page.fill('#f_strength', '主動補位');
+  await page.fill('#f_kpi', '營收成長 12%'); await page.fill('#f_strength', '主動補位');
   await page.locator('[data-k="risk"][data-c="中"]').click(); await page.locator('[data-k="keyman"][data-c="是"]').click();
   await page.locator('details summary').click(); await shot('06-manager'); await noOverflow();
   await page.click('[data-submit]'); await page.waitForSelector('[data-report]');
-  assert.strictEqual(call('boot', { token: tokens.E001 }).data.reports[0].answers.kpi, '線上商城營收與轉換率：營收成長 12%');
+  assert.strictEqual(call('boot', { token: tokens.E001 }).data.reports[0].answers.kpi, '營收成長 12%');
 
   await browser.close(); server.close();
 

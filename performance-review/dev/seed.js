@@ -76,7 +76,7 @@ function seed({ fill = true } = {}) {
       const others = b.directory.filter((_, i) => (i + idx) % 4 === 0).slice(0, 3);
       must(call('save', { token: t, form: 'thanks', answers: { cards: others.map(o => ({ to: o.id, tag: '最佳支援', text: '謝謝你在旺季幫忙頂班' })) } }));
       b.reports.forEach((r, ri) => must(call('save', { token: t, form: 'mgr', target: r.id, answers: Object.assign(
-        scores(sk, 3 + ((idx + ri) % 3)), { kpi: (r.kpis[0] || '指標') + '：達成 105%', strength: '主動補位，品質穩定', improve: '回報可以更即時',
+        scores(sk, 3 + ((idx + ri) % 3)), { kpi: '檔期目標達成 105%', strength: '主動補位，品質穩定', improve: '回報可以更即時',
           develop: '建議接手新人訓練', risk: ri === 2 ? '高' : '低', keyman: ri === 0 ? '是' : '否' }) })));
     });
     const ceo = must(call('boot', { token: tokens.E000 }));

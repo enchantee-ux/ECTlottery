@@ -5,7 +5,7 @@
  */
 
 const SHEETS = {
-  settings: '設定', roster: '名冊', kpi: '部門指標',
+  settings: '設定', roster: '名冊',
   self: '自評', mgr: '主管評', peer: '同儕評', thanks: '感謝卡', voice: '心聲',
   calib: '校準', result: '結果'
 };
@@ -44,16 +44,6 @@ const DEFAULT_SETTINGS = [
   ['月數_A', '', ''],
   ['月數_B', '', ''],
   ['月數_C', '', '']
-];
-
-const DEFAULT_KPIS = [
-  ['管理', '行政與財務作業準時率', '流程改善件數', '內部同仁滿意度'],
-  ['行銷', '線上商城營收與轉換率', 'LINE 好友與互動成長', '活動檔期目標達成率'],
-  ['設計', '專案準時交付率', '新品與客製設計件數', '內外部滿意度'],
-  ['生產', '產量達成率', '良率與報廢率', '食安與衛生稽核結果'],
-  ['包裝', '出貨正確率', '準時出貨率', '包材損耗率'],
-  ['銷售', '成交盒數', '試吃成交率', '顧客評價'],
-  ['企業業務', '成交金額', '新客戶數', '客戶回購率']
 ];
 
 const DIMENSIONS = [
@@ -111,7 +101,7 @@ const FIELD_VI = {
   change: ['Một điều muốn thay đổi nhất', 'Nếu có thể thay đổi một điều ở công ty hoặc trong công việc'],
   private: ['Điều muốn nói với Giám đốc điều hành', 'Bạn có thể nói bất cứ điều gì, chỉ Giám đốc điều hành xem được'],
   meet: ['Muốn gặp riêng Giám đốc điều hành', ''],
-  kpi: ['Số liệu chính', 'Điền số liệu thực tế của năm nay, có thể để trống'],
+  kpi: ['Thành quả và số liệu cụ thể', 'Viết thành quả cụ thể của nhân viên này trong năm, kèm số liệu nếu có. Có thể để trống'],
   strength: ['Ưu điểm và đóng góp', 'Ví dụ cụ thể đáng ghi nhận nhất trong năm'],
   improve: ['Cần cải thiện', 'Một hoặc hai điều cần điều chỉnh nhất'],
   develop: ['Đề xuất phát triển năm tới', 'Mục tiêu, đào tạo hoặc điều chỉnh công việc được đề xuất'],
@@ -143,7 +133,8 @@ const FORMS = {
     { k: 'goal', label: '明年目標', desc: '明年最想達成或學會的事', type: 'text', req: true, group: '回顧與展望' },
     { k: 'support', label: '需要的支援', desc: '希望公司或主管提供什麼協助', type: 'text', group: '回顧與展望' }]) },
   mgr: { sheet: SHEETS.mgr, fields: scoreFields_().concat([
-    { k: 'kpi', label: '關鍵數字', desc: '填入今年的實際數字，沒有可留白', type: 'kpi', group: '成果佐證' },
+    // h 是試算表欄名，沿用舊名以相容已建立的工作表
+    { k: 'kpi', label: '具體成果與數字', h: '關鍵數字', desc: '依這位同仁的實際職務，寫下今年的具體成果，有數字請附上（例如成交盒數、良率、出貨正確率、完成的專案）。沒有可留白', type: 'text', group: '成果佐證' },
     { k: 'strength', label: '優點與貢獻', desc: '今年最值得肯定的具體事例', type: 'text', req: true, group: '評語' },
     { k: 'improve', label: '待改善', desc: '最需要調整的一到兩件事', type: 'text', group: '評語' },
     { k: 'develop', label: '明年發展建議', desc: '建議的目標、訓練或職務調整', type: 'text', group: '評語' },
@@ -172,8 +163,9 @@ const FORMS = {
     { k: 'meet', label: '希望與執行長一對一面談', desc: '', type: 'choice', options: ['是', '否'], req: true, group: '想說的話' }] }
 };
 
+function hdr_(f) { return f.h || f.label; }
 function formHeaders_(form) {
-  return KEY_HEADERS.concat(FORMS[form].fields.map(f => f.label));
+  return KEY_HEADERS.concat(FORMS[form].fields.map(hdr_));
 }
 const THANKS_HEADERS = KEY_HEADERS.concat(['標籤', '內容']);
 const CALIB_HEADERS = ['年度', '編號', '姓名', '最終等第', '備註', '時間'];
@@ -199,9 +191,6 @@ function setup() {
     appendRow_(SHEETS.roster, ['E000', '（範例）執行長', '管理', '執行長', '', '', '執行長', 'ceo@example.com', '', '', '']);
     appendRow_(SHEETS.roster, ['E001', '（範例）王主管', '行銷', '行銷主管', 'E000', '2020-03-01', '', 'manager@example.com', '', '', '']);
     appendRow_(SHEETS.roster, ['E002', '（範例）陳同仁', '行銷', '行銷專員', 'E001', '2023-06-15', '', 'staff@example.com', 'vi', '', '']);
-  }
-  if (ensureSheet_(SHEETS.kpi, ['部門', '指標1', '指標2', '指標3'])) {
-    DEFAULT_KPIS.forEach(r => appendRow_(SHEETS.kpi, r));
   }
   ['self', 'mgr', 'peer', 'voice'].forEach(f => ensureSheet_(FORMS[f].sheet, formHeaders_(f)));
   ensureSheet_(SHEETS.thanks, THANKS_HEADERS);
@@ -457,17 +446,13 @@ function ctx_() {
   readTable_(SHEETS.calib).filter(r => String(r['年度']).trim() === year).forEach(r => {
     ctx.calib[String(r['編號']).trim()] = { grade: String(r['最終等第'] || '').trim(), note: String(r['備註'] || '') };
   });
-  ctx.kpis = {};
-  readTable_(SHEETS.kpi).forEach(r => {
-    ctx.kpis[String(r['部門']).trim()] = ['指標1', '指標2', '指標3'].map(k => String(r[k] || '').trim()).filter(String);
-  });
   return ctx;
 }
 
 function rowToAnswers_(form, row) {
   const a = {};
   FORMS[form].fields.forEach(f => {
-    const v = row[f.label];
+    const v = row[hdr_(f)];
     a[f.k] = f.type === 'score' ? num_(v, null) : String(v === undefined || v === null ? '' : v);
   });
   return a;
@@ -562,7 +547,7 @@ function boot_(p) {
     directory: ctx.people.filter(x => x.id !== me.id).map(brief_),
     reports: reps.map(r => Object.assign(brief_(r), {
       self: (ctx.self.filter(x => x.from === r.id)[0] || {}).a || null,
-      answers: one(ctx.mgr, r.id), kpis: ctx.kpis[r.dept] || [],
+      answers: one(ctx.mgr, r.id),
       raters: r.raterIds, need: needRaters_(ctx, r), max: MAX_RATERS, maxPerDept: MAX_PER_DEPT, loadWarn: RATER_LOAD_WARN,
       pool: peerPool_(ctx, r).map(x => Object.assign(brief_(x), {
         load: ctx.people.filter(o => o.id !== r.id && o.raterIds.indexOf(x.id) >= 0).length }))
@@ -609,16 +594,16 @@ function validate_(form, answers) {
     if (f.type === 'score') {
       const n = Number(v);
       if (!(n >= 1 && n <= 5 && Math.floor(n) === n)) throw err_('「' + f.label + '」尚未評分', 'Chưa chấm điểm: ' + label_(f));
-      out[f.label] = n;
+      out[hdr_(f)] = n;
     } else if (f.type === 'choice') {
       if (f.options.indexOf(v) < 0) {
         if (f.req) throw err_('「' + f.label + '」尚未選擇', 'Chưa chọn: ' + label_(f));
-        out[f.label] = '';
-      } else out[f.label] = v;
+        out[hdr_(f)] = '';
+      } else out[hdr_(f)] = v;
     } else {
       const t = cleanText_(stripTr_(v), 2000);
       if (f.req && !t) throw err_('「' + f.label + '」尚未填寫', 'Chưa điền: ' + label_(f));
-      out[f.label] = f.type === 'kpi' ? t : withTr_(t);
+      out[hdr_(f)] = withTr_(t);
     }
   });
   return out;
