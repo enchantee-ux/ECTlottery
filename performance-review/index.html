@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>樂朗奇 年度績效評核</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Cormorant+Garamond:ital,wght@1,500&display=swap">
+<style>
+/* 版面：單欄手機優先，最寬 640px；首頁是任務清單，問卷一題一塊 */
+:root {
+  --bg: #F6F4F7; --card: #FFFFFF; --ink: #2B2233; --muted: #6E6478; --line: #E4DEE8;
+  --accent: #8A3B5C; --accent-soft: #F3E6EC; --gold: #A8842F;
+  --good: #2F7D5B; --good-soft: #E3F1EA; --warn: #A66A00; --warn-soft: #FBF0D9; --bad: #B3362F; --bad-soft: #F9E4E2;
+  --font: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --display: "Cormorant Garamond", Georgia, serif;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 var(--font); }
+#app { max-width: 640px; margin: 0 auto; padding: 20px 16px 96px; display: flex; flex-direction: column; gap: 16px; }
+h1 { font-size: 22px; margin: 0; line-height: 1.3; }
+h2 { font-size: 17px; margin: 0; }
+h3 { font-size: 13px; margin: 0; color: var(--accent); letter-spacing: .08em; font-weight: 700; }
+p { margin: 0; }
+.brand { font: italic 500 20px var(--display); color: var(--accent); letter-spacing: .02em; }
+.muted { color: var(--muted); font-size: 14px; }
+.small { font-size: 13px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.stack { display: flex; flex-direction: column; gap: 12px; }
+.row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.row > .grow { flex: 1; min-width: 0; }
+.wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn { border: 0; border-radius: 12px; padding: 14px 18px; background: var(--accent); color: #fff; font-weight: 700; width: 100%; }
+.btn[disabled] { opacity: .5; }
+.btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+.btn.slim { width: auto; padding: 8px 14px; font-size: 14px; }
+.back { background: none; border: 0; padding: 6px 0; color: var(--accent); font-weight: 500; align-self: flex-start; }
+.task { text-align: left; width: 100%; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; align-items: center; gap: 12px; }
+.task .grow { flex: 1; min-width: 0; }
+.pill { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 99px; white-space: nowrap; }
+.pill.done { background: var(--good-soft); color: var(--good); }
+.pill.todo { background: var(--accent-soft); color: var(--accent); }
+.pill.optional, .pill.na { background: var(--bg); color: var(--muted); }
+.pill.red { background: var(--bad-soft); color: var(--bad); }
+.pill.yellow { background: var(--warn-soft); color: var(--warn); }
+.pill.green { background: var(--good-soft); color: var(--good); }
+.notice { border-radius: 12px; padding: 12px 14px; font-size: 14px; background: var(--warn-soft); color: var(--warn); }
+.notice.info { background: var(--accent-soft); color: var(--accent); }
+.q { display: flex; flex-direction: column; gap: 8px; padding: 14px 0; border-top: 1px solid var(--line); }
+.q:first-of-type { border-top: 0; padding-top: 0; }
+.q.miss .qlabel { color: var(--bad); }
+.qlabel { font-weight: 700; }
+.req { color: var(--bad); margin-left: 2px; }
+.scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.scale button { border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 10px 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.scale button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.scalecap { font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; }
+.scalecap b { color: var(--accent); }
+textarea, input[type=text], select { font: inherit; color: inherit; width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--card); }
+textarea { min-height: 96px; resize: vertical; }
+.chip { border: 1px solid var(--line); background: var(--card); border-radius: 99px; padding: 8px 16px; font-size: 14px; }
+.chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.sticky { position: sticky; bottom: 12px; }
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 99px; font-size: 14px; z-index: 9; max-width: 90vw; }
+.tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.tabs button { border: 1px solid var(--line); background: var(--card); border-radius: 99px; padding: 8px 16px; font-size: 14px; white-space: nowrap; }
+.tabs button.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+.num { font-variant-numeric: tabular-nums; font-weight: 700; }
+.big { font-size: 26px; line-height: 1.1; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.tile { background: var(--bg); border-radius: 10px; padding: 10px; text-align: center; }
+.dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.dot.red { background: var(--bad); } .dot.yellow { background: #D9A21B; } .dot.green { background: var(--good); }
+.prow { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-top: 1px solid var(--line); min-width: 0; }
+.prow:first-child { border-top: 0; }
+.prow .who { flex: 1; min-width: 0; background: none; border: 0; text-align: left; padding: 0; }
+.prow select { width: auto; padding: 6px 8px; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; font-size: 13px; width: 100%; }
+th, td { padding: 8px 6px; text-align: center; border-bottom: 1px solid var(--line); white-space: nowrap; font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child { text-align: left; }
+td.lo { background: var(--bad-soft); color: var(--bad); font-weight: 700; }
+td.mid { background: var(--warn-soft); }
+td.hi { background: var(--good-soft); }
+.quote { background: var(--bg); border-radius: 10px; padding: 10px 12px; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.kv { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.kv span:last-child { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.center { text-align: center; padding: 48px 0; }
+</style>
+</head>
+<body>
+<div id="app"><p class="center muted">載入中…</p></div>
+<script>window.BOOT = <?!= boot ?>;</script>
+<script>
+(function () {
+'use strict';
+var token = (window.BOOT && window.BOOT.token) || '';
+var app = document.getElementById('app');
+var D = null, DB = null, view = { name: 'home' }, F = null, busy = false;
+
+/* ───── 與後端溝通 ───── */
+function call(action, payload) {
+  payload = payload || {}; payload.token = token;
+  return new Promise(function (resolve, reject) {
+    function done(s) { var r = JSON.parse(s); r.ok ? resolve(r.data) : reject(new Error(r.error)); }
+    if (window.google && google.script && google.script.run) {
+      google.script.run.withSuccessHandler(done)
+        .withFailureHandler(function (e) { reject(new Error((e && e.message) || '連線失敗，請再試一次')); })
+        .api(action, JSON.stringify(payload));
+    } else {
+      fetch('/api', { method: 'POST', body: JSON.stringify({ action: action, payload: payload }) })
+        .then(function (r) { return r.text(); }).then(done).catch(reject);
+    }
+  });
+}
+
+/* ───── 小工具 ───── */
+function esc(s) { return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function toast(msg) {
+  [].forEach.call(document.querySelectorAll('.toast'), function (x) { x.remove(); });
+  var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t);
+  setTimeout(function () { t.remove(); }, 2600);
+}
+function go(name, arg) { view = { name: name, arg: arg }; F = null; render(); window.scrollTo(0, 0); }
+function draftKey(form, target) { return 'pr:' + D.cfg.year + ':' + D.me.id + ':' + form + ':' + target; }
+function getDraft(form, target) { try { return JSON.parse(localStorage.getItem(draftKey(form, target)) || 'null'); } catch (e) { return null; } }
+function setDraft(form, target, v) { try { v === null ? localStorage.removeItem(draftKey(form, target)) : localStorage.setItem(draftKey(form, target), JSON.stringify(v)); } catch (e) {} }
+function pill(st) { return '<span class="pill ' + st + '">' + ({ done: '已完成', todo: '待填寫', optional: '選填', na: '不需填' }[st]) + '</span>'; }
+function byId(list, id) { for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i]; return null; }
+function fmt(n) { return n === null || n === undefined ? '—' : n; }
+
+function load(keep) {
+  return call('boot').then(function (d) { D = d; if (!keep) view = { name: 'home' }; render(); })
+    .catch(function (e) { app.innerHTML = '<div class="center stack"><div class="brand">enchantée</div><h1>無法開啟</h1><p class="muted">' + esc(e.message) + '</p></div>'; });
+}
+
+/* ───── 首頁 ───── */
+var TASKS = [
+  ['self', '自評', '回顧今年的成果與成長，約 8 分鐘', 'self'],
+  ['voice', '心聲問卷', '只有執行長看得到，不影響年終，約 3 分鐘', 'voice'],
+  ['peer', '同儕回饋', '為今年合作過的同事留下回饋，每位約 1 分鐘', 'peerList'],
+  ['thanks', '感謝卡', '', 'thanks'],
+  ['mgr', '主管評核', '評核您的直屬同仁', 'mgrList']
+];
+function viewHome() {
+  var c = D.cfg, todo = 0, total = 0;
+  var cards = TASKS.filter(function (t) { return D.tasks[t[0]] !== 'na'; }).map(function (t) {
+    var st = D.tasks[t[0]];
+    if (st !== 'optional') { total++; if (st === 'todo') todo++; }
+    var desc = t[0] === 'thanks' ? '寫給至少 ' + c.minThanks + ' 位同事，具名送出' : t[2];
+    return '<button class="task" data-go="' + t[3] + '"><span class="grow"><b>' + t[1] + '</b><br><span class="muted">' + desc + '</span></span>' + pill(st) + '</button>';
+  }).join('');
+  var h = '<div class="brand">enchantée</div>' +
+    '<div><h1>' + esc(D.me.name) + '，辛苦了</h1><p class="muted">' + esc(c.year) + ' 年度績效評核' + (c.deadline ? '　截止日 ' + esc(c.deadline) : '') + '</p></div>';
+  if (!c.open) h += '<div class="notice">本年度評核已截止，目前只能檢視，無法修改。</div>';
+  else if (total && !todo) h += '<div class="notice info">全部完成了，謝謝您的用心填寫。截止日前仍可回來修改。</div>';
+  else if (total) h += '<p class="muted">還有 <b>' + todo + '</b> 項待完成，可以分次填寫，未送出的內容會暫存在這支手機。</p>';
+  h += '<div class="stack">' + cards + '</div>';
+  if (D.received) {
+    h += '<div class="card"><h3>我收到的感謝卡</h3>' + (D.received.length ? D.received.map(function (r) {
+      return '<div><div class="quote">' + esc(r.text) + '</div><p class="muted small">' + esc(r.from) + '（' + esc(r.dept) + '）' + (r.tag ? '　' + esc(r.tag) : '') + '</p></div>';
+    }).join('') : '<p class="muted">目前還沒有收到感謝卡。</p>') + '</div>';
+  }
+  if (D.me.isCEO) h += '<button class="btn" data-go="dash">開啟執行長儀表板</button>';
+  return h;
+}
+
+/* ───── 通用問卷 ───── */
+function openForm(form, target, title, intro, backTo, extra) {
+  var fields = D.forms[form].fields;
+  var existing = form === 'self' ? D.self : form === 'voice' ? D.voice :
+    form === 'peer' ? (byId(D.peers, target) || {}).answers : (byId(D.reports, target) || {}).answers;
+  F = { form: form, target: target, title: title, intro: intro, backTo: backTo, extra: extra || '',
+    fields: fields, a: Object.assign({}, existing || getDraft(form, target) || {}), submitted: !!existing };
+}
+function kpiParse(s) {
+  var o = {}; String(s || '').split('\n').forEach(function (line) { var i = line.indexOf('：'); if (i > 0) o[line.slice(0, i)] = line.slice(i + 1); });
+  return o;
+}
+function fieldHtml(f) {
+  var v = F.a[f.k], h = '<div class="q" data-q="' + f.k + '"><div><span class="qlabel">' + esc(f.label) + '</span>' + (f.req ? '<span class="req">＊</span>' : '') +
+    (f.desc ? '<br><span class="muted">' + esc(f.desc) + '</span>' : '') + '</div>';
+  if (f.type === 'score') {
+    h += '<div class="scale">' + [1, 2, 3, 4, 5].map(function (n) {
+      return '<button type="button" data-k="' + f.k + '" data-v="' + n + '" class="' + (v === n ? 'on' : '') + '" aria-label="' + n + ' 分 ' + esc(f.scale[n - 1]) + '">' + n + '</button>';
+    }).join('') + '</div><div class="scalecap"><span>' + esc(f.scale[0]) + '</span><b data-cap="' + f.k + '">' + (v ? esc(f.scale[v - 1]) : '') + '</b><span>' + esc(f.scale[4]) + '</span></div>';
+  } else if (f.type === 'choice') {
+    h += '<div class="wrap">' + f.options.map(function (o) {
+      return '<button type="button" class="chip ' + (v === o ? 'on' : '') + '" data-k="' + f.k + '" data-c="' + esc(o) + '">' + esc(o) + '</button>';
+    }).join('') + '</div>';
+  } else if (f.type === 'kpi') {
+    var kp = kpiParse(v), names = (byId(D.reports, F.target) || {}).kpis || [];
+    h += names.length ? names.map(function (n, i) {
+      return '<label class="small muted" for="kpi' + i + '">' + esc(n) + '</label><input type="text" id="kpi' + i + '" data-kpi="' + esc(n) + '" value="' + esc(kp[n] || '') + '">';
+    }).join('') : '<textarea id="f_' + f.k + '" data-t="' + f.k + '">' + esc(v || '') + '</textarea>';
+  } else {
+    h += '<textarea id="f_' + f.k + '" data-t="' + f.k + '" maxlength="2000">' + esc(v || '') + '</textarea>';
+  }
+  return h + '</div>';
+}
+function viewForm() {
+  var h = '<button class="back" data-go="' + F.backTo + '">‹ 返回</button><div><h1>' + esc(F.title) + '</h1><p class="muted">' + F.intro + '</p></div>' + F.extra;
+  var group = null, open = false;
+  F.fields.forEach(function (f) {
+    var g = f.group || '';
+    if (g !== group) { if (open) h += '</div>'; h += '<div class="card">' + (g ? '<h3>' + esc(g) + '</h3>' : ''); open = true; group = g; }
+    h += fieldHtml(f);
+  });
+  if (open) h += '</div>';
+  if (D.cfg.open) h += '<div class="sticky"><button class="btn" data-submit="1">' + (F.submitted ? '更新並送出' : '送出') + '</button></div>';
+  return h;
+}
+function submitForm() {
+  var miss = null;
+  F.fields.forEach(function (f) {
+    var v = F.a[f.k], empty = f.type === 'score' ? !v : !String(v || '').trim();
+    var el = app.querySelector('[data-q="' + f.k + '"]');
+    el.classList.toggle('miss', !!(f.req && empty));
+    if (f.req && empty && !miss) miss = el;
+  });
+  if (miss) { miss.scrollIntoView({ behavior: 'smooth', block: 'center' }); toast('還有必填題目尚未完成'); return; }
+  var form = F.form, target = F.target, backTo = F.backTo;
+  send({ form: form, target: target, answers: F.a }, function () { setDraft(form, target, null); go(backTo); });
+}
+function send(payload, after) {
+  if (busy) return; busy = true;
+  var b = app.querySelector('[data-submit]'); if (b) { b.disabled = true; b.textContent = '送出中…'; }
+  call('save', payload).then(function () { return call('boot'); }).then(function (d) {
+    busy = false; D = d; toast('已送出'); after();
+  }).catch(function (e) { busy = false; toast(e.message); render(); });
+}
+
+/* ───── 同儕回饋 ───── */
+function viewPeerList() {
+  var h = '<button class="back" data-go="home">‹ 返回</button><div><h1>同儕回饋</h1><p class="muted">只評今年實際合作過的同事。回饋內容只有執行長看得到，轉達時不會顯示您的姓名。</p></div>';
+  h += '<div class="card"><h3>我的回饋對象</h3>' + (D.peers.length ? D.peers.map(function (p) {
+    return '<div class="prow"><button class="who" data-peer="' + esc(p.id) + '"><b>' + esc(p.name) + '</b> <span class="muted">' + esc(p.dept) + (p.assigned ? '・指定' : '') + '</span></button>' +
+      pill(p.answers ? 'done' : (p.assigned ? 'todo' : 'optional')) + '</div>';
+  }).join('') : '<p class="muted">目前沒有指定的對象。</p>') + '</div>';
+  if (D.cfg.open && D.peerCandidates.length) {
+    h += '<div class="card"><h3>新增合作過的同事</h3><p class="muted">今年工作上有交集的同事，都歡迎留下回饋。</p><select id="peerAdd"><option value="">選擇同事…</option>' +
+      groupOptions(D.peerCandidates) + '</select></div>';
+  }
+  return h;
+}
+function groupOptions(list, selected) {
+  var depts = {}; list.forEach(function (p) { (depts[p.dept] = depts[p.dept] || []).push(p); });
+  return Object.keys(depts).map(function (d) {
+    return '<optgroup label="' + esc(d || '其他') + '">' + depts[d].map(function (p) {
+      return '<option value="' + esc(p.id) + '"' + (p.id === selected ? ' selected' : '') + '>' + esc(p.name) + '</option>';
+    }).join('') + '</optgroup>';
+  }).join('');
+}
+function openPeer(id) {
+  var p = byId(D.peers, id) || byId(D.peerCandidates, id);
+  openForm('peer', id, '給 ' + p.name + ' 的回饋', esc(p.dept) + '　請依今年實際合作的經驗作答', 'peerList',
+    (byId(D.peers, id) && byId(D.peers, id).answers && !byId(D.peers, id).assigned && D.cfg.open) ? '<button class="btn ghost slim" data-delpeer="' + esc(id) + '">移除這份回饋</button>' : '');
+  view = { name: 'form' }; render(); window.scrollTo(0, 0);
+}
+
+/* ───── 感謝卡 ───── */
+function viewThanks() {
+  if (!F) F = { cards: (D.thanks.length ? D.thanks : (getDraft('thanks', 'all') || [])).map(function (c) { return { to: c.to, tag: c.tag, text: c.text }; }) };
+  while (F.cards.length < D.cfg.minThanks) F.cards.push({ to: '', tag: '', text: '' });
+  var h = '<button class="back" data-go="home">‹ 返回</button><div><h1>感謝卡</h1><p class="muted">今年誰幫過你、誰讓你覺得有他真好？請寫給至少 ' + D.cfg.minThanks + ' 位同事，不限部門。感謝卡會具名送給對方。</p></div>';
+  h += F.cards.map(function (c, i) {
+    return '<div class="card"><div class="row"><h3 class="grow">第 ' + (i + 1) + ' 張</h3>' + (F.cards.length > D.cfg.minThanks ? '<button class="btn ghost slim" data-delcard="' + i + '">移除</button>' : '') + '</div>' +
+      '<select id="tk_to' + i + '" data-card="' + i + '" data-f="to"><option value="">要感謝誰？</option>' + groupOptions(D.directory, c.to) + '</select>' +
+      '<div class="wrap">' + D.cfg.tags.map(function (t) { return '<button type="button" class="chip ' + (c.tag === t ? 'on' : '') + '" data-card="' + i + '" data-tag="' + esc(t) + '">' + esc(t) + '</button>'; }).join('') + '</div>' +
+      '<textarea id="tk_tx' + i + '" data-card="' + i + '" data-f="text" maxlength="300" placeholder="寫下具體的事，例如：謝謝你在中秋檔期幫我頂了三天的出貨">' + esc(c.text) + '</textarea></div>';
+  }).join('');
+  if (D.cfg.open) h += '<button class="btn ghost" data-addcard="1">＋ 再寫一張</button><div class="sticky"><button class="btn" data-submit="thanks">送出感謝卡</button></div>';
+  return h;
+}
+function submitThanks() {
+  var cards = F.cards.filter(function (c) { return c.to || String(c.text).trim(); });
+  if (cards.length < D.cfg.minThanks) { toast('請至少寫給 ' + D.cfg.minThanks + ' 位同事'); return; }
+  send({ form: 'thanks', answers: { cards: cards } }, function () { setDraft('thanks', 'all', null); go('home'); });
+}
+
+/* ───── 主管評核 ───── */
+function viewMgrList() {
+  return '<button class="back" data-go="home">‹ 返回</button><div><h1>主管評核</h1><p class="muted">評分前可以先看同仁的自評。離職風險與關鍵人才的判斷只有執行長看得到。</p></div>' +
+    '<div class="card">' + D.reports.map(function (r) {
+      return '<div class="prow"><button class="who" data-report="' + esc(r.id) + '"><b>' + esc(r.name) + '</b> <span class="muted">' + esc(r.title || r.dept) + (r.self ? '' : '・尚未自評') + '</span></button>' + pill(r.answers ? 'done' : 'todo') + '</div>';
+    }).join('') + '</div>';
+}
+function answersHtml(form, a, forms) {
+  var fields = (forms || D.forms)[form].fields, scores = fields.filter(function (f) { return f.type === 'score'; });
+  var h = scores.map(function (f) { return '<div class="kv"><span>' + esc(f.label) + '</span><span>' + fmt(a[f.k]) + '</span></div>'; }).join('');
+  fields.filter(function (f) { return f.type !== 'score' && String(a[f.k] || '').trim(); }).forEach(function (f) {
+    h += '<div><p class="small muted">' + esc(f.label) + '</p><div class="quote">' + esc(a[f.k]) + '</div></div>';
+  });
+  return h;
+}
+function openReport(id) {
+  var r = byId(D.reports, id);
+  var extra = '<details class="card"><summary><b>' + esc(r.name) + ' 的自評</b></summary>' + (r.self ? '<div class="stack">' + answersHtml('self', r.self) + '</div>' : '<p class="muted">這位同仁尚未送出自評，您仍可先評分，之後再回來調整。</p>') + '</details>';
+  openForm('mgr', id, '評核 ' + r.name, esc(r.title || r.dept), 'mgrList', extra);
+  view = { name: 'form' }; render(); window.scrollTo(0, 0);
+}
+
+/* ───── 執行長儀表板 ───── */
+var dashTab = 'progress';
+function loadDash() {
+  app.innerHTML = '<p class="center muted">彙整中…</p>';
+  call('dashboard').then(function (d) { DB = d; render(); }).catch(function (e) { toast(e.message); go('home'); });
+}
+function viewDash() {
+  if (!DB) { loadDash(); return '<p class="center muted">彙整中…</p>'; }
+  var tabs = [['progress', '填寫進度'], ['result', '評核結果'], ['care', '留任關懷'], ['thanks', '感謝卡'], ['mood', '部門氛圍']];
+  var h = '<button class="back" data-go="home">‹ 返回</button><div><h1>' + esc(DB.cfg.year) + ' 年度評核儀表板</h1><p class="muted">僅執行長可見。點同仁姓名可看完整內容。</p></div>' +
+    '<div class="tabs">' + tabs.map(function (t) { return '<button class="' + (dashTab === t[0] ? 'on' : '') + '" data-tab="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>';
+  return h + { progress: dashProgress, result: dashResult, care: dashCare, thanks: dashThanks, mood: dashMood }[dashTab]();
+}
+function who(p) { return '<button class="who" data-person="' + esc(p.id) + '"><b>' + esc(p.name) + '</b> <span class="muted">' + esc(p.dept) + '</span></button>'; }
+function dashProgress() {
+  var names = { self: '自評', voice: '心聲', peer: '同儕', thanks: '感謝卡', mgr: '主管評' };
+  var tiles = Object.keys(names).map(function (k) {
+    var need = DB.people.filter(function (p) { return p.tasks[k] === 'done' || p.tasks[k] === 'todo'; });
+    var done = need.filter(function (p) { return p.tasks[k] === 'done'; });
+    return '<div class="tile"><div class="num big">' + done.length + '<span class="muted small">/' + need.length + '</span></div><div class="small muted">' + names[k] + '</div></div>';
+  }).join('');
+  var late = DB.people.filter(function (p) { return Object.keys(names).some(function (k) { return p.tasks[k] === 'todo'; }); });
+  return '<div class="card"><h3>完成人數</h3><div class="grid4" style="grid-template-columns:repeat(auto-fit,minmax(84px,1fr))">' + tiles + '</div></div>' +
+    '<div class="card"><h3>尚未完成（' + late.length + ' 人）</h3>' + (late.length ? late.map(function (p) {
+      return '<div class="prow">' + who(p) + '<span class="small muted">' + Object.keys(names).filter(function (k) { return p.tasks[k] === 'todo'; }).map(function (k) { return names[k]; }).join('、') + '</span></div>';
+    }).join('') : '<p class="muted">所有人都完成了。</p>') + '</div>';
+}
+function dashResult() {
+  var d = DB.dist, m = DB.months;
+  var tiles = ['S', 'A', 'B', 'C'].map(function (g) {
+    return '<div class="tile"><div class="num big">' + d[g] + (DB.caps[g] ? '<span class="muted small">/' + DB.caps[g] + '</span>' : '') + '</div><div class="small muted">' + g + ' 等' + (m[g] !== null ? '<br>' + m[g] + ' 個月' : '') + '</div></div>';
+  }).join('');
+  var over = ['S', 'A'].filter(function (g) { return d[g] > DB.caps[g]; });
+  var rated = DB.people.filter(function (p) { return p.rated; }).sort(function (a, b) { return (b.score.total === null ? -1 : b.score.total) - (a.score.total === null ? -1 : a.score.total); });
+  var h = '<div class="card"><h3>等第分布（共 ' + DB.ratedCount + ' 人參加評等）</h3><div class="grid4">' + tiles + '</div>' +
+    (over.length ? '<div class="notice">' + over.join('、') + ' 等人數已超過比例上限，請確認是否調整。</div>' : '') +
+    (m.S === null ? '<p class="muted small">尚未設定各等第的年終月數，請到試算表「設定」工作表填寫「月數_S」等四項。</p>' : '') + '</div>';
+  h += '<div class="card"><h3>個人結果（依總分排序）</h3><p class="muted small">下拉選單可調整最終等第，未調整者採系統建議。</p>' + rated.map(function (p) {
+    return '<div class="prow"><span class="dot ' + p.light + '" title="關懷燈號"></span>' + who(p) +
+      '<span class="num">' + fmt(p.score.total) + '</span>' +
+      '<select data-final="' + esc(p.id) + '" aria-label="' + esc(p.name) + ' 最終等第">' + ['', 'S', 'A', 'B', 'C'].map(function (g) {
+        var sel = (p.calibrated ? p.final : '') === g;
+        return '<option value="' + g + '"' + (sel ? ' selected' : '') + '>' + (g ? g + (p.calibrated && sel ? '（已調整）' : '') : '建議 ' + (p.suggested || '—')) + '</option>';
+      }).join('') + '</select></div>';
+  }).join('') + '</div>';
+  return h;
+}
+function dashCare() {
+  var lv = { red: '優先面談', yellow: '持續留意' }, h = '';
+  ['red', 'yellow'].forEach(function (c) {
+    var list = DB.people.filter(function (p) { return p.light === c; });
+    h += '<div class="card"><h3>' + lv[c] + '（' + list.length + ' 人）</h3>' + (list.length ? list.map(function (p) {
+      return '<div class="prow"><span class="dot ' + c + '"></span><div class="grow" style="min-width:0;flex:1">' + who(p) +
+        '<p class="small muted">' + p.flags.map(function (f) { return esc(f.text); }).join('、') + '</p></div></div>';
+    }).join('') : '<p class="muted">目前沒有。</p>') + '</div>';
+  });
+  var green = DB.people.filter(function (p) { return p.light === 'green'; }).length;
+  return h + '<p class="muted small">其餘 ' + green + ' 位同仁狀況穩定。燈號依心聲問卷、主管觀察、自評落差與感謝卡綜合判斷，是面談的線索，不是結論。</p>';
+}
+function dashThanks() {
+  var list = DB.people.slice().sort(function (a, b) { return b.thanksIn.length - a.thanksIn.length; });
+  var top = list.filter(function (p) { return p.thanksIn.length; }).slice(0, 10), zero = list.filter(function (p) { return !p.thanksIn.length; });
+  return '<div class="card"><h3>最常被感謝的同仁</h3>' + (top.length ? top.map(function (p) {
+    var depts = {}; p.thanksIn.forEach(function (t) { depts[t.dept] = 1; });
+    return '<div class="prow">' + who(p) + '<span class="small muted">來自 ' + Object.keys(depts).length + ' 個部門</span><span class="num">' + p.thanksIn.length + ' 張</span></div>';
+  }).join('') : '<p class="muted">還沒有人送出感謝卡。</p>') + '</div>' +
+    '<div class="card"><h3>尚未收到感謝卡（' + zero.length + ' 人）</h3>' + (zero.length ? '<p class="muted small">可能是工作不容易被看見，或與團隊互動較少，值得留意。</p>' + zero.map(function (p) { return '<div class="prow">' + who(p) + '</div>'; }).join('') : '<p class="muted">每個人都收到了。</p>') + '</div>';
+}
+function dashMood() {
+  var qs = DB.forms.voice.fields.filter(function (f) { return f.type === 'score'; });
+  if (!DB.mood.length) return '<div class="card"><p class="muted">還沒有人填寫心聲問卷。</p></div>';
+  return '<div class="card"><h3>各部門心聲平均（1–5 分）</h3><div class="scroll"><table><thead><tr><th>部門</th><th>人數</th>' + qs.map(function (q) { return '<th>' + esc(q.label) + '</th>'; }).join('') +
+    '</tr></thead><tbody>' + DB.mood.map(function (d) {
+      return '<tr><td>' + esc(d.dept) + '</td><td>' + d.n + '</td>' + qs.map(function (q) { var v = d.avg[q.k]; return '<td class="' + (v < 3 ? 'lo' : v < 3.5 ? 'mid' : v >= 4.2 ? 'hi' : '') + '">' + fmt(v) + '</td>'; }).join('') + '</tr>';
+    }).join('') + '</tbody></table></div><p class="muted small">紅色低於 3 分，黃色低於 3.5 分，綠色高於 4.2 分。</p></div>';
+}
+function viewPerson() {
+  var p = byId(DB.people, view.arg), s = p.score;
+  var h = '<button class="back" data-go="dash">‹ 返回儀表板</button><div><h1>' + esc(p.name) + '</h1><p class="muted">' + esc(p.dept) + '　' + esc(p.title) + (p.mgrName ? '　主管：' + esc(p.mgrName) : '') + '</p></div>';
+  if (p.rated) {
+    h += '<div class="card"><h3>分數</h3><div class="grid4">' + [['總分', s.total], ['主管評', s.mgr], ['同儕(' + s.peerN + '人)', s.peer], ['自評', s.self]].map(function (x) {
+      return '<div class="tile"><div class="num big">' + fmt(x[1]) + '</div><div class="small muted">' + x[0] + '</div></div>'; }).join('') + '</div>' +
+      '<div class="kv"><span>等第</span><span>' + (p.final || '—') + (p.calibrated ? '（已調整，系統建議 ' + (p.suggested || '—') + '）' : '') + (p.months !== null ? '・年終 ' + p.months + ' 個月' : '') + '</span></div>' +
+      (s.note ? '<p class="small muted">' + esc(s.note) + '</p>' : '') +
+      (s.mgrDims ? '<div class="scroll"><table><thead><tr><th>構面</th><th>主管</th><th>自評</th></tr></thead><tbody>' + DB.dims.map(function (d) {
+        return '<tr><td>' + esc(d.name) + '</td><td>' + fmt(s.mgrDims[d.key]) + '</td><td>' + fmt(s.selfDims ? s.selfDims[d.key] : null) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '') + '</div>';
+  } else h += '<div class="notice info">' + esc(s.note) + '</div>';
+  h += '<div class="card"><div class="row"><h3 class="grow">留任關懷</h3><span class="pill ' + p.light + '">' + { red: '優先面談', yellow: '持續留意', green: '穩定' }[p.light] + '</span></div>' +
+    (p.flags.length ? p.flags.map(function (f) { return '<div><p><b>' + esc(f.text) + '</b></p><p class="small muted">面談建議：' + esc(f.ask) + '</p></div>'; }).join('') : '<p class="muted">沒有需要特別留意的訊號。</p>') + '</div>';
+  h += '<div class="card"><h3>心聲問卷</h3>' + (p.voice ? answersHtml('voice', p.voice, DB.forms) : '<p class="muted">尚未填寫。</p>') + '</div>';
+  if (p.rated) {
+    h += '<div class="card"><h3>主管評核</h3>' + (p.mgr ? answersHtml('mgr', p.mgr, DB.forms) : '<p class="muted">主管尚未評分。</p>') + '</div>';
+    h += '<div class="card"><h3>自評</h3>' + (p.self ? answersHtml('self', p.self, DB.forms) : '<p class="muted">尚未填寫。</p>') + '</div>';
+    h += '<div class="card"><h3>同儕回饋（' + p.peers.length + ' 人）</h3>' + (p.peers.length ? p.peers.map(function (r) {
+      var avg = (r.a.p1 + r.a.p2 + r.a.p3 + r.a.p4) / 4;
+      return '<div class="stack" style="gap:6px"><div class="kv"><span>' + esc(r.from) + '（' + esc(r.dept) + '）</span><span>平均 ' + avg.toFixed(1) + '</span></div>' +
+        (r.a.praise ? '<div class="quote">肯定：' + esc(r.a.praise) + '</div>' : '') + (r.a.better ? '<div class="quote">建議：' + esc(r.a.better) + '</div>' : '') + '</div>';
+    }).join('') : '<p class="muted">尚無同儕回饋。</p>') + '</div>';
+  }
+  h += '<div class="card"><h3>收到的感謝卡（' + p.thanksIn.length + ' 張，送出 ' + p.thanksOut + ' 張）</h3>' + (p.thanksIn.length ? p.thanksIn.map(function (t) {
+    return '<div><div class="quote">' + esc(t.text) + '</div><p class="small muted">' + esc(t.from) + '（' + esc(t.dept) + '）' + (t.tag ? '　' + esc(t.tag) : '') + '</p></div>'; }).join('') : '<p class="muted">尚未收到。</p>') + '</div>';
+  return h;
+}
+
+/* ───── 畫面切換與事件 ───── */
+function render() {
+  var v = view.name;
+  if (v === 'self' && !F) openForm('self', D.me.id, '自評', '請誠實回顧今年的表現。主管與執行長會看到這份內容。', 'home');
+  if (v === 'voice' && !F) openForm('voice', D.me.id, '心聲問卷', '這份問卷<b>只有執行長看得到</b>，您的主管看不到，也不會影響年終。請放心說真話。', 'home');
+  app.innerHTML = v === 'home' ? viewHome() : (v === 'self' || v === 'voice' || v === 'form') ? viewForm() :
+    v === 'peerList' ? viewPeerList() : v === 'thanks' ? viewThanks() : v === 'mgrList' ? viewMgrList() :
+    v === 'dash' ? viewDash() : v === 'person' ? viewPerson() : '';
+}
+function closest(el, attr) { return el.closest ? el.closest('[' + attr + ']') : null; }
+
+app.addEventListener('click', function (e) {
+  var t = e.target, el;
+  if ((el = closest(t, 'data-go'))) { if (el.dataset.go === 'dash') DB = null; return go(el.dataset.go); }
+  if ((el = closest(t, 'data-peer'))) return openPeer(el.dataset.peer);
+  if ((el = closest(t, 'data-report'))) return openReport(el.dataset.report);
+  if ((el = closest(t, 'data-person'))) return go('person', el.dataset.person);
+  if ((el = closest(t, 'data-tab'))) { dashTab = el.dataset.tab; return render(); }
+  if ((el = closest(t, 'data-delpeer'))) return send({ form: 'peer', target: el.dataset.delpeer, answers: null }, function () { go('peerList'); });
+  if ((el = closest(t, 'data-submit'))) return el.dataset.submit === 'thanks' ? submitThanks() : submitForm();
+  if (closest(t, 'data-addcard')) { F.cards.push({ to: '', tag: '', text: '' }); return render(); }
+  if ((el = closest(t, 'data-delcard'))) { F.cards.splice(Number(el.dataset.delcard), 1); setDraft('thanks', 'all', F.cards); return render(); }
+  if ((el = closest(t, 'data-tag'))) {
+    var c = F.cards[Number(el.dataset.card)]; c.tag = c.tag === el.dataset.tag ? '' : el.dataset.tag;
+    [].forEach.call(el.parentNode.children, function (b) { b.classList.toggle('on', b.dataset.tag === c.tag); });
+    return setDraft('thanks', 'all', F.cards);
+  }
+  if (!F || !D.cfg.open) return;
+  if ((el = closest(t, 'data-v'))) {
+    var k = el.dataset.k, n = Number(el.dataset.v); F.a[k] = n;
+    [].forEach.call(el.parentNode.children, function (b) { b.classList.toggle('on', b === el); });
+    var f = F.fields.filter(function (x) { return x.k === k; })[0];
+    app.querySelector('[data-cap="' + k + '"]').textContent = f.scale[n - 1];
+    setDraft(F.form, F.target, F.a);
+  } else if ((el = closest(t, 'data-c'))) {
+    F.a[el.dataset.k] = el.dataset.c;
+    [].forEach.call(el.parentNode.children, function (b) { b.classList.toggle('on', b === el); });
+    setDraft(F.form, F.target, F.a);
+  }
+});
+app.addEventListener('input', function (e) {
+  var t = e.target;
+  if (!F) return;
+  if (t.dataset.t) { F.a[t.dataset.t] = t.value; setDraft(F.form, F.target, F.a); }
+  else if (t.dataset.kpi !== undefined) {
+    F.a.kpi = [].map.call(app.querySelectorAll('[data-kpi]'), function (i) { return i.value.trim() ? i.dataset.kpi + '：' + i.value.trim().replace(/\n/g, ' ') : ''; }).filter(String).join('\n');
+    setDraft(F.form, F.target, F.a);
+  } else if (t.dataset.card !== undefined && t.dataset.f) { F.cards[Number(t.dataset.card)][t.dataset.f] = t.value; setDraft('thanks', 'all', F.cards); }
+});
+app.addEventListener('change', function (e) {
+  var t = e.target;
+  if (t.id === 'peerAdd' && t.value) return openPeer(t.value);
+  if (t.dataset.final !== undefined) {
+    call('setFinal', { id: t.dataset.final, grade: t.value }).then(function () { return call('dashboard'); })
+      .then(function (d) { DB = d; render(); toast('已更新等第'); }).catch(function (err) { toast(err.message); render(); });
+  }
+});
+
+load();
+})();
+</script>
+</body>
+</html>
