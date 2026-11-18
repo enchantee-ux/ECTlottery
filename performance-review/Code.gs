@@ -31,8 +31,8 @@ const DEFAULT_SETTINGS = [
   ['來源_主管', 60, '三種評分來源的權重，合計 100'],
   ['來源_同儕', 25, ''],
   ['來源_自評', 15, ''],
-  ['同儕最少人數', 3, '同儕評分者少於此人數時不計同儕分數，權重併回主管評'],
-  ['同儕回饋最少人數', 3, '每位參加評等的同仁至少要為幾位合作過的同事填寫同儕回饋'],
+  ['同儕最少人數', 3, '主管要為每位直屬同仁指定的同儕評核人數；實際評分者少於此人數時不計同儕分數，權重併回主管評'],
+  ['同儕回饋最少人數', 0, '除了主管指定的對象外，每位同仁至少還要自選幾位同事填寫同儕回饋。0 代表只需完成指定對象'],
   ['登入有效天數', 30, '同仁用 Email 驗證碼登入後，幾天內不必重新登入'],
   ['感謝卡最少張數', 3, '每人至少要寫給幾位同事'],
   ['S比例上限', 10, '百分比。S 等第人數上限'],
@@ -229,7 +229,7 @@ function api(action, payloadJson) {
     const p = JSON.parse(payloadJson || '{}');
     LANG = p.lang === 'vi' ? 'vi' : 'zh';
     const handlers = { requestCode: requestCode_, verifyCode: verifyCode_, logout: logout_,
-      boot: boot_, save: save_, dashboard: dashboard_, setFinal: setFinal_ };
+      boot: boot_, save: save_, assign: assign_, dashboard: dashboard_, setFinal: setFinal_ };
     if (!handlers[action]) throw new Error('不支援的操作');
     return JSON.stringify({ ok: true, data: handlers[action](p) });
   } catch (err) {
@@ -483,6 +483,7 @@ function canPeer_(ctx, me) { return !me.isCEO && (me.rated || assignedTo_(ctx, m
 function peerPool_(ctx, me) {
   return ctx.people.filter(x => x.rated && x.id !== me.id && x.id !== me.mgrId && x.mgrId !== me.id);
 }
+function needRaters_(ctx, p) { return Math.min(num_(ctx.settings['同儕最少人數'], 3), peerPool_(ctx, p).length); }
 function minPeerGive_(ctx, me) {
   if (!me.rated) return 0;
   return Math.min(num_(ctx.settings['同儕回饋最少人數'], 3), peerPool_(ctx, me).length);
@@ -490,7 +491,7 @@ function minPeerGive_(ctx, me) {
 
 function tasks_(ctx, me) {
   const st = ok => ok ? 'done' : 'todo';
-  const t = { self: 'na', voice: 'na', peer: 'na', thanks: 'na', mgr: 'na' };
+  const t = { self: 'na', voice: 'na', peer: 'na', thanks: 'na', assign: 'na', mgr: 'na' };
   if (me.rated) t.self = st(ctx.self.some(r => r.from === me.id));
   if (!me.isCEO) t.voice = st(ctx.voice.some(r => r.from === me.id));
   if (canPeer_(ctx, me)) {
@@ -502,7 +503,10 @@ function tasks_(ctx, me) {
   const minThanks = num_(ctx.settings['感謝卡最少張數'], 3);
   t.thanks = st(ctx.thanks.filter(r => r.from === me.id).length >= Math.min(minThanks, ctx.people.length - 1));
   const reps = reportsOf_(ctx, me);
-  if (reps.length) t.mgr = st(reps.every(p => ctx.mgr.some(r => r.from === me.id && r.to === p.id)));
+  if (reps.length) {
+    t.mgr = st(reps.every(p => ctx.mgr.some(r => r.from === me.id && r.to === p.id)));
+    t.assign = st(reps.every(p => p.raterIds.length >= needRaters_(ctx, p)));
+  }
   return t;
 }
 
@@ -521,7 +525,7 @@ function boot_(p) {
   const ctx = ctx_();
   const me = auth_(ctx, p.token);
   const s = ctx.settings;
-  const one = (list, to) => { const r = list.filter(x => x.from === me.id && x.to === to)[0]; return r ? r.a : null; };
+  const one = (list, to) => { const r = list.filter(x => x.from === me.id && x.to === to)[0]; return r ? ownAnswers_(r.a) : null; };
   const reps = reportsOf_(ctx, me);
 
   const assigned = assignedTo_(ctx, me).map(x => x.id);
@@ -543,11 +547,12 @@ function boot_(p) {
     peers: peerIds.map(id => Object.assign(brief_(ctx.byId[id]),
       { assigned: assigned.indexOf(id) >= 0, answers: one(ctx.peer, id) })),
     peerCandidates: canPeer_(ctx, me) ? peerPool_(ctx, me).filter(x => peerIds.indexOf(x.id) < 0).map(brief_) : [],
-    thanks: ctx.thanks.filter(r => r.from === me.id).map(r => ({ to: r.to, tag: r.tag, text: r.text })),
+    thanks: ctx.thanks.filter(r => r.from === me.id).map(r => ({ to: r.to, tag: r.tag, text: stripTr_(r.text) })),
     directory: ctx.people.filter(x => x.id !== me.id).map(brief_),
     reports: reps.map(r => Object.assign(brief_(r), {
       self: (ctx.self.filter(x => x.from === r.id)[0] || {}).a || null,
-      answers: one(ctx.mgr, r.id), kpis: ctx.kpis[r.dept] || []
+      answers: one(ctx.mgr, r.id), kpis: ctx.kpis[r.dept] || [],
+      raters: r.raterIds, need: needRaters_(ctx, r), pool: peerPool_(ctx, r).map(brief_)
     })),
     received: yes_(s['公開感謝卡']) ? ctx.thanks.filter(r => r.to === me.id).map(r => ({
       from: ctx.byId[r.from].name, dept: ctx.byId[r.from].dept, tag: r.tag, text: r.text })) : null
@@ -555,6 +560,30 @@ function boot_(p) {
 }
 
 /* ───────────── 送出問卷 ───────────── */
+
+const TR_MARK = '\n\n【中文翻譯】';
+function stripTr_(v) {
+  const t = String(v === undefined || v === null ? '' : v);
+  const i = t.indexOf(TR_MARK);
+  return i < 0 ? t : t.slice(0, i);
+}
+// 內容大部分不是中文時（例如越南文），用 Google 翻譯附上中文，原文保留
+function withTr_(text) {
+  if (!text) return text;
+  const letters = text.replace(/[\s\d.,!?;:，。！？；：、()（）\-]/g, '');
+  const cjk = (letters.match(/[\u3400-\u9fff]/g) || []).length;
+  if (!letters.length || cjk / letters.length > 0.3) return text;
+  try {
+    const zh = LanguageApp.translate(text, '', 'zh-TW');
+    return (zh && zh !== text) ? text + TR_MARK + zh : text;
+  } catch (e) { return text; }
+}
+function ownAnswers_(a) {
+  if (!a) return a;
+  const o = {};
+  Object.keys(a).forEach(k => { o[k] = typeof a[k] === 'string' ? stripTr_(a[k]) : a[k]; });
+  return o;
+}
 
 function cleanText_(v, max) {
   return String(v === undefined || v === null ? '' : v).replace(/\r/g, '').trim().slice(0, max);
@@ -574,9 +603,9 @@ function validate_(form, answers) {
         out[f.label] = '';
       } else out[f.label] = v;
     } else {
-      const t = cleanText_(v, 2000);
+      const t = cleanText_(stripTr_(v), 2000);
       if (f.req && !t) throw err_('「' + f.label + '」尚未填寫', 'Chưa điền: ' + label_(f));
-      out[f.label] = t;
+      out[f.label] = f.type === 'kpi' ? t : withTr_(t);
     }
   });
   return out;
@@ -604,9 +633,9 @@ function save_(p) {
         if (!to || to.id === me.id) throw err_('請選擇要感謝的同事', 'Vui lòng chọn đồng nghiệp bạn muốn cảm ơn.');
         if (seen[to.id]) throw err_('每位同事只能寫一張感謝卡：' + to.name, 'Mỗi đồng nghiệp chỉ viết một thiệp: ' + to.name);
         seen[to.id] = true;
-        const text = cleanText_(c.text, 300);
+        const text = cleanText_(stripTr_(c.text), 300);
         if (!text) throw err_('給 ' + to.name + ' 的感謝卡還沒寫內容', 'Thiệp gửi ' + to.name + ' chưa có nội dung.');
-        return Object.assign(keyOf(to), { '標籤': THANKS_TAGS.indexOf(c.tag) >= 0 ? c.tag : '', '內容': text });
+        return Object.assign(keyOf(to), { '標籤': THANKS_TAGS.indexOf(c.tag) >= 0 ? c.tag : '', '內容': withTr_(text) });
       });
       deleteRows_(SHEETS.thanks, r => String(r['年度']).trim() === ctx.year && String(r['填寫人編號']).trim() === me.id);
       rows.forEach(r => appendObj_(SHEETS.thanks, r));
@@ -638,6 +667,32 @@ function save_(p) {
     }
     const obj = Object.assign(keyOf(target), validate_(form, p.answers));
     upsert_(FORMS[form].sheet, same(target.id), obj);
+    return { saved: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function assign_(p) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const ctx = ctx_();
+    const me = auth_(ctx, p.token);
+    if (!yes_(ctx.settings['開放填寫'])) throw err_('本年度評核已截止，無法再修改', 'Đợt đánh giá năm nay đã kết thúc, không thể chỉnh sửa.');
+    const target = ctx.byId[String(p.target)];
+    if (!target || target.mgrId !== me.id || !target.rated) throw new Error('只能為您的直屬同仁指定同儕評核人');
+    const pool = peerPool_(ctx, target).map(x => x.id);
+    const ids = (Array.isArray(p.raters) ? p.raters : []).map(String)
+      .filter((id, i, a) => pool.indexOf(id) >= 0 && a.indexOf(id) === i);
+    const need = needRaters_(ctx, target);
+    if (ids.length < need) throw new Error('請至少指定 ' + need + ' 位同儕評核人');
+    if (ids.length > 6) throw new Error('最多指定 6 位同儕評核人');
+    const sh = ss_().getSheetByName(SHEETS.roster);
+    const col = headerOf_(sh).indexOf('同儕評核人') + 1;
+    const row = readTable_(SHEETS.roster).filter(r => String(r['編號']).trim() === target.id)[0];
+    if (!col || !row) throw new Error('名冊缺少「同儕評核人」欄');
+    sh.getRange(row._row, col, 1, 1).setValues([[ids.join(',')]]);
     return { saved: true };
   } finally {
     lock.releaseLock();

@@ -244,6 +244,7 @@ var TASKS = [
   ['voice', '心聲問卷', '只有執行長看得到，不影響年終，約 3 分鐘', 'voice'],
   ['peer', '同儕回饋', '為今年合作過的同事留下回饋，每位約 1 分鐘', 'peerList'],
   ['thanks', '感謝卡', '', 'thanks'],
+  ['assign', '指定同儕評核人', '為每位直屬同仁指定合作對象，請在同仁開始填寫前完成', 'assignList'],
   ['mgr', '主管評核', '評核您的直屬同仁', 'mgrList']
 ];
 function viewHome() {
@@ -327,10 +328,10 @@ function submitForm() {
   var form = F.form, target = F.target, backTo = F.backTo;
   send({ form: form, target: target, answers: F.a }, function () { setDraft(form, target, null); go(backTo); });
 }
-function send(payload, after) {
+function send(payload, after, action) {
   if (busy) return; busy = true;
   var b = app.querySelector('[data-submit]'); if (b) { b.disabled = true; b.textContent = t('送出中…'); }
-  call('save', payload).then(function () { return call('boot'); }).then(function (d) {
+  call(action || 'save', payload).then(function () { return call('boot'); }).then(function (d) {
     busy = false; D = d; toast(t('已送出')); after();
   }).catch(function (e) { busy = false; if (e.code !== 'SESSION') { toast(e.message); render(); } });
 }
@@ -385,6 +386,35 @@ function submitThanks() {
   send({ form: 'thanks', answers: { cards: cards } }, function () { setDraft('thanks', 'all', null); go('home'); });
 }
 
+/* ───── 主管指定同儕評核人 ───── */
+function viewAssignList() {
+  return '<button class="back" data-go="home">‹ 返回</button><div><h1>指定同儕評核人</h1><p class="muted">為每位直屬同仁挑選今年和他實際合作最多的同事，可以跨部門。被指定的人會在自己的頁面看到要填寫的對象；當事人不會知道是誰評他。</p></div>' +
+    '<div class="card">' + D.reports.map(function (r) {
+      return '<div class="prow"><button class="who" data-assign="' + esc(r.id) + '"><b>' + esc(r.name) + '</b> <span class="muted">' +
+        (r.raters.length ? esc(r.raters.map(function (id) { return (byId(r.pool, id) || {}).name || id; }).join('、')) : '尚未指定') + '</span></button>' +
+        pill(r.raters.length >= r.need ? 'done' : 'todo') + '</div>';
+    }).join('') + '</div>';
+}
+function viewAssign() {
+  var r = byId(D.reports, view.arg);
+  if (!F) { F = { sel: {} }; r.raters.forEach(function (id) { F.sel[id] = true; }); }
+  var depts = {}; r.pool.forEach(function (p) { (depts[p.dept] = depts[p.dept] || []).push(p); });
+  var n = Object.keys(F.sel).length;
+  var h = '<button class="back" data-go="assignList">‹ 返回</button><div><h1>' + esc(r.name) + ' 的同儕評核人</h1><p class="muted">請選 ' + r.need + ' 到 6 位，目前已選 <b id="selN">' + n + '</b> 位。</p></div>';
+  h += Object.keys(depts).map(function (d) {
+    return '<div class="card"><h3>' + esc(d || '其他') + '</h3><div class="wrap">' + depts[d].map(function (p) {
+      return '<button type="button" class="chip ' + (F.sel[p.id] ? 'on' : '') + '" data-pick="' + esc(p.id) + '">' + esc(p.name) + '</button>';
+    }).join('') + '</div></div>';
+  }).join('');
+  if (D.cfg.open) h += '<div class="sticky"><button class="btn" data-submit="assign">儲存</button></div>';
+  return h;
+}
+function submitAssign() {
+  var r = byId(D.reports, view.arg), ids = Object.keys(F.sel);
+  if (ids.length < r.need) return toast('請至少選 ' + r.need + ' 位');
+  send({ target: r.id, raters: ids }, function () { go('assignList'); }, 'assign');
+}
+
 /* ───── 主管評核 ───── */
 function viewMgrList() {
   return '<button class="back" data-go="home">‹ 返回</button><div><h1>主管評核</h1><p class="muted">評分前可以先看同仁的自評。離職風險與關鍵人才的判斷只有執行長看得到。</p></div>' +
@@ -422,7 +452,7 @@ function viewDash() {
 }
 function who(p) { return '<button class="who" data-person="' + esc(p.id) + '"><b>' + esc(p.name) + '</b> <span class="muted">' + esc(p.dept) + '</span></button>'; }
 function dashProgress() {
-  var names = { self: '自評', voice: '心聲', peer: '同儕', thanks: '感謝卡', mgr: '主管評' };
+  var names = { self: '自評', voice: '心聲', peer: '同儕', thanks: '感謝卡', assign: '指定同儕', mgr: '主管評' };
   var tiles = Object.keys(names).map(function (k) {
     var need = DB.people.filter(function (p) { return p.tasks[k] === 'done' || p.tasks[k] === 'todo'; });
     var done = need.filter(function (p) { return p.tasks[k] === 'done'; });
@@ -519,7 +549,7 @@ function render() {
   if (v === 'voice' && !F) openForm('voice', D.me.id, '心聲問卷', '這份問卷<b>只有執行長看得到</b>，您的主管看不到，也不會影響年終。請放心說真話。', 'home');
   if (F && F.fields && (v === 'self' || v === 'voice')) { F.title = t(v === 'self' ? '自評' : '心聲問卷'); F.intro = t(v === 'self' ? '請誠實回顧今年的表現。主管與執行長會看到這份內容。' : '這份問卷<b>只有執行長看得到</b>，您的主管看不到，也不會影響年終。請放心說真話。'); }
   app.innerHTML = v === 'home' ? viewHome() : (v === 'self' || v === 'voice' || v === 'form') ? viewForm() :
-    v === 'peerList' ? viewPeerList() : v === 'thanks' ? viewThanks() : v === 'mgrList' ? viewMgrList() :
+    v === 'peerList' ? viewPeerList() : v === 'assignList' ? viewAssignList() : v === 'assign' ? viewAssign() : v === 'thanks' ? viewThanks() : v === 'mgrList' ? viewMgrList() :
     v === 'dash' ? viewDash() : v === 'person' ? viewPerson() : '';
 }
 function closest(el, attr) { return el.closest ? el.closest('[' + attr + ']') : null; }
@@ -537,10 +567,17 @@ app.addEventListener('click', function (e) {
   if ((el = closest(tg, 'data-go'))) { if (el.dataset.go === 'dash') DB = null; return go(el.dataset.go); }
   if ((el = closest(tg, 'data-peer'))) return openPeer(el.dataset.peer);
   if ((el = closest(tg, 'data-report'))) return openReport(el.dataset.report);
+  if ((el = closest(tg, 'data-assign'))) return go('assign', el.dataset.assign);
+  if ((el = closest(tg, 'data-pick'))) {
+    if (!D.cfg.open) return;
+    var pid = el.dataset.pick;
+    if (F.sel[pid]) delete F.sel[pid]; else if (Object.keys(F.sel).length < 6) F.sel[pid] = true; else return toast('最多選 6 位');
+    el.classList.toggle('on', !!F.sel[pid]); document.getElementById('selN').textContent = Object.keys(F.sel).length; return;
+  }
   if ((el = closest(tg, 'data-person'))) return go('person', el.dataset.person);
   if ((el = closest(tg, 'data-tab'))) { dashTab = el.dataset.tab; return render(); }
   if ((el = closest(tg, 'data-delpeer'))) return send({ form: 'peer', target: el.dataset.delpeer, answers: null }, function () { go('peerList'); });
-  if ((el = closest(tg, 'data-submit'))) return el.dataset.submit === 'thanks' ? submitThanks() : submitForm();
+  if ((el = closest(tg, 'data-submit'))) return el.dataset.submit === 'thanks' ? submitThanks() : el.dataset.submit === 'assign' ? submitAssign() : submitForm();
   if (closest(tg, 'data-addcard')) { F.cards.push({ to: '', tag: '', text: '' }); return render(); }
   if ((el = closest(tg, 'data-delcard'))) { F.cards.splice(Number(el.dataset.delcard), 1); setDraft('thanks', 'all', F.cards); return render(); }
   if ((el = closest(tg, 'data-tag'))) {

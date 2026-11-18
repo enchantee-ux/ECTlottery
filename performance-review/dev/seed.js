@@ -33,7 +33,16 @@ function seed({ fill = true } = {}) {
     tokens[r[0]] = call('verifyCode', { email, code: lastCode() }).data.token;
   });
 
+  // 主管為每位直屬同仁指定三位同儕評核人
+  const assignAll = () => Object.keys(tokens).forEach(id => {
+    const b = call('boot', { token: tokens[id] }).data;
+    b.reports.forEach((r, i) => {
+      const res = call('assign', { token: tokens[id], target: r.id, raters: r.pool.slice(i, i + 3).map(x => x.id) });
+      if (!res.ok) throw new Error(res.error);
+    });
+  });
   if (fill) {
+    assignAll();
     let seedN = 7;
     const rnd = () => { seedN = (seedN * 1103515245 + 12345) % 2147483648; return seedN / 2147483648; };
     const pick = (lo, hi) => lo + Math.floor(rnd() * (hi - lo + 1));
@@ -55,7 +64,7 @@ function seed({ fill = true } = {}) {
           scores(['v1', 'v2', 'v3', 'v4', 'v5', 'v6', 'v7', 'v8', 'v9'], low ? 2 : 4),
           { happy: '春酒抽到獎', change: low ? '希望排班可以更早公布' : '', private: low ? '=最近在考慮其他機會' : '', meet: low ? '是' : '否' }) }));
       }
-      b.peers.concat(b.peerCandidates.filter((_, i) => (i + idx) % 3 === 0).slice(0, 4)).forEach(p => must(call('save', { token: t, form: 'peer', target: p.id,
+      b.peers.forEach(p => must(call('save', { token: t, form: 'peer', target: p.id,
         answers: Object.assign(scores(['p1', 'p2', 'p3', 'p4'], 4), { praise: '很可靠，交辦的事都有回音', better: '' }) })));
       const others = b.directory.filter((_, i) => (i + idx) % 4 === 0).slice(0, 3);
       must(call('save', { token: t, form: 'thanks', answers: { cards: others.map(o => ({ to: o.id, tag: '最佳支援', text: '謝謝你在旺季幫忙頂班' })) } }));

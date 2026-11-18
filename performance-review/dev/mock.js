@@ -56,6 +56,7 @@ function createBackend() {
       getProperty: k => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = String(v); },
       deleteProperty: k => { delete props[k]; }, getProperties: () => Object.assign({}, props) }) },
     MailApp: { sendEmail: m => outbox.push(m) },
+    LanguageApp: { translate: text => '（譯）' + text.length + ' 字' },
     console
   };
   vm.createContext(sandbox);

@@ -33,6 +33,19 @@ function logic() {
   const vi = call('save', { token: tokens.E002, lang: 'vi', form: 'self', target: 'E002', answers: {} });
   assert(/Chưa/.test(vi.error), '越南文錯誤訊息');
   assert.strictEqual(call('boot', { token: tokens.E010 }).data.me.lang, 'vi');
+  // 越南文作答會附上中文翻譯；本人回來修改時只看到原文
+  const viSelf = Object.assign({}, call('boot', { token: tokens.E010 }).data.self, { ach: 'Hoàn thành kế hoạch giao hàng mùa Trung thu' });
+  assert(call('save', { token: tokens.E010, form: 'self', target: 'E010', answers: viSelf }).ok);
+  assert.strictEqual(call('boot', { token: tokens.E010 }).data.self.ach, viSelf.ach);
+  const seenByMgr = call('boot', { token: tokens.E009 }).data.reports.find(r => r.id === 'E010').self.ach;
+  assert(seenByMgr.startsWith(viSelf.ach) && seenByMgr.includes('【中文翻譯】'), '主管看到原文加中文翻譯');
+  assert(call('save', { token: tokens.E010, form: 'self', target: 'E010', answers: viSelf }).ok);
+  assert.strictEqual(call('boot', { token: tokens.E009 }).data.reports.find(r => r.id === 'E010').self.ach.split('【中文翻譯】').length, 2, '重送不會重複翻譯');
+  assert(!call('boot', { token: tokens.E002 }).data.self.ach.includes('【中文翻譯】'), '中文作答不翻譯');
+  // 指定同儕
+  assert(!call('assign', { token: tokens.E002, target: 'E003', raters: ['E004'] }).ok, '非主管不能指定');
+  assert(!call('assign', { token: tokens.E001, target: 'E002', raters: ['E003'] }).ok, '不足三位');
+  assert(!call('assign', { token: tokens.E001, target: 'E002', raters: ['E001', 'E002', 'E000'] }).ok, '不能指定本人、主管或執行長');
   const b2 = call('boot', { token: tokens.E002 }).data;
   assert.strictEqual(JSON.stringify(b2).includes('最近在考慮'), false, '同仁看不到別人的心聲');
   assert.strictEqual(b2.received, null, '感謝卡未公開前看不到');
@@ -88,7 +101,7 @@ async function ui(outDir) {
   await page.fill('#lg_email', 'e002@example.com'); await page.click('[data-login="send"]');
   await page.waitForSelector('#lg_code'); await page.fill('#lg_code', lastCode()); await page.click('[data-login="verify"]');
   await page.waitForSelector('.task'); await shot('01-home'); await noOverflow();
-  assert.strictEqual(await page.locator('[data-go="peerList"] .pill').innerText(), '待填寫');
+  assert.strictEqual(await page.locator('[data-go="peerList"] .pill').innerText(), '選填');
   await page.click('[data-go="self"]');
   await page.click('[data-submit]');
   assert(await page.locator('.q.miss').count() > 0, '未填完會標示必填');
@@ -128,7 +141,14 @@ async function ui(outDir) {
   // 主管評
   await page.evaluate(tk => localStorage.setItem('pr:session', tk), tokens.E001);
   await page.goto('http://localhost:8766/');
-  await page.waitForSelector('.task'); await page.click('[data-go="mgrList"]');
+  await page.waitForSelector('.task'); await page.click('[data-go="assignList"]');
+  await page.locator('[data-assign]').first().click();
+  for (let i = 0; i < 3; i++) await page.locator('[data-pick]').nth(i).click();
+  await shot('06a-assign'); await noOverflow();
+  await page.click('[data-submit]'); await page.waitForSelector('[data-assign]');
+  assert.strictEqual(call('boot', { token: tokens.E001 }).data.reports[0].raters.length, 3);
+  assert.strictEqual(call('boot', { token: tokens.E003 }).data.peers.filter(p => p.assigned).length, 1, '被指定的人會看到對象');
+  await page.click('[data-go="home"]'); await page.click('[data-go="mgrList"]');
   await page.locator('[data-report]').first().click(); await fillScores();
   await page.fill('#kpi0', '營收成長 12%'); await page.fill('#f_strength', '主動補位');
   await page.locator('[data-k="risk"][data-c="中"]').click(); await page.locator('[data-k="keyman"][data-c="是"]').click();
