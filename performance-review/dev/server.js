@@ -5,7 +5,7 @@ const path = require('path');
 const { seed } = require('./seed');
 
 function start(port, opts) {
-  const { be, tokens, call } = seed(opts);
+  const { be, tokens, call, lastCode } = seed(opts);
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://x');
     if (req.method === 'POST' && url.pathname === '/api') {
@@ -18,21 +18,20 @@ function start(port, opts) {
       });
       return;
     }
-    const token = (url.searchParams.get('t') || '').replace(/[^A-Za-z0-9]/g, '');
-    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8')
-      .replace('<?!= boot ?>', JSON.stringify({ token }));
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.end(html);
   });
-  return new Promise(resolve => server.listen(port, () => resolve({ server, be, tokens, call })));
+  return new Promise(resolve => server.listen(port, () => resolve({ server, be, tokens, call, lastCode })));
 }
 
 module.exports = { start };
 
 if (require.main === module) {
-  start(8765).then(({ tokens }) => {
-    console.log('執行長   http://localhost:8765/?t=' + tokens.E000);
-    console.log('主管     http://localhost:8765/?t=' + tokens.E001);
-    console.log('同仁     http://localhost:8765/?t=' + tokens.E002);
+  start(8765).then(({ be }) => {
+    console.log('開啟 http://localhost:8765/ ，用 e000@example.com（執行長）、e001@example.com（主管）、e002@example.com（同仁）登入');
+    console.log('驗證碼會顯示在這裡：');
+    let seen = be.outbox.length;
+    setInterval(() => { for (; seen < be.outbox.length; seen++) console.log(' ', be.outbox[seen].to, be.outbox[seen].subject); }, 500);
   });
 }

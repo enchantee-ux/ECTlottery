@@ -45,17 +45,23 @@ function createBackend() {
     insertSheet: n => (sheets[n] = new Sheet(n))
   };
   let uuid = 0;
+  const cache = {}, props = {}, outbox = [];
   const sandbox = {
     SpreadsheetApp: { getActiveSpreadsheet: () => ss },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
-    Utilities: { getUuid: () => ('00000000-0000-4000-8000-' + String(++uuid).padStart(12, '0')) },
-    ScriptApp: { getService: () => ({ getUrl: () => 'http://localhost:8765/' }) },
+    Utilities: { getUuid: () => ('00000000-0000-4000-8000-' + String(++uuid * 7919 + 100000).padStart(12, '0')) },
+    CacheService: { getScriptCache: () => ({
+      get: k => (k in cache ? cache[k] : null), put: (k, v) => { cache[k] = String(v); }, remove: k => { delete cache[k]; } }) },
+    PropertiesService: { getScriptProperties: () => ({
+      getProperty: k => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = String(v); },
+      deleteProperty: k => { delete props[k]; }, getProperties: () => Object.assign({}, props) }) },
+    MailApp: { sendEmail: m => outbox.push(m) },
     console
   };
   vm.createContext(sandbox);
   const code = fs.readFileSync(path.join(__dirname, '..', 'Code.gs'), 'utf8');
-  vm.runInContext(code + '\n;globalThis.__api = { setup, generateLinks, writeResults, api };', sandbox);
-  return { sheets, api: sandbox.__api };
+  vm.runInContext(code + '\n;globalThis.__api = { setup, writeResults, api };', sandbox);
+  return { sheets, api: sandbox.__api, outbox, props };
 }
 
 module.exports = { createBackend };

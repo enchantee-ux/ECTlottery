@@ -10,7 +10,7 @@ const SHEETS = {
   calib: '校準', result: '結果'
 };
 
-const ROSTER_HEADERS = ['編號', '姓名', '部門', '職稱', '直屬主管', '到職日', '角色', '同儕評核人', '參加評等', 'Token', '專屬連結'];
+const ROSTER_HEADERS = ['編號', '姓名', '部門', '職稱', '直屬主管', '到職日', '角色', 'Email', '語言', '參加評等', '同儕評核人'];
 const KEY_HEADERS = ['年度', '時間', '填寫人編號', '填寫人', '對象編號', '對象'];
 const SCALE = ['待加強', '尚可', '符合期待', '超出期待', '表現卓越'];
 const AGREE = ['非常不同意', '不同意', '普通', '同意', '非常同意'];
@@ -32,6 +32,8 @@ const DEFAULT_SETTINGS = [
   ['來源_同儕', 25, ''],
   ['來源_自評', 15, ''],
   ['同儕最少人數', 3, '同儕評分者少於此人數時不計同儕分數，權重併回主管評'],
+  ['同儕回饋最少人數', 3, '每位參加評等的同仁至少要為幾位合作過的同事填寫同儕回饋'],
+  ['登入有效天數', 30, '同仁用 Email 驗證碼登入後，幾天內不必重新登入'],
   ['感謝卡最少張數', 3, '每人至少要寫給幾位同事'],
   ['S比例上限', 10, '百分比。S 等第人數上限'],
   ['A比例上限', 30, '百分比。A 等第人數上限'],
@@ -41,8 +43,7 @@ const DEFAULT_SETTINGS = [
   ['月數_S', '', '各等第對應的年終月數，由執行長每年填入'],
   ['月數_A', '', ''],
   ['月數_B', '', ''],
-  ['月數_C', '', ''],
-  ['網頁網址', '', '部署網頁應用程式後取得的網址（結尾為 /exec），產生專屬連結時使用']
+  ['月數_C', '', '']
 ];
 
 const DEFAULT_KPIS = [
@@ -70,6 +71,55 @@ const DIMENSIONS = [
     { k: 'a1', label: '責任感與主動性', desc: '說到做到，主動發現並處理問題' },
     { k: 'a2', label: '品牌價值', desc: '以顧客與品牌為先，維護樂朗奇的品質與形象' }] }
 ];
+
+const SCALE_VI = ['Cần cải thiện', 'Tạm được', 'Đạt kỳ vọng', 'Vượt kỳ vọng', 'Xuất sắc'];
+const AGREE_VI = ['Rất không đồng ý', 'Không đồng ý', 'Bình thường', 'Đồng ý', 'Rất đồng ý'];
+const GROUP_VI = { '我的這一年': 'Một năm của tôi', '工作成果': 'Kết quả công việc', '專業能力與成長': 'Năng lực chuyên môn và phát triển',
+  '團隊合作': 'Làm việc nhóm', '態度與品牌價值': 'Thái độ và giá trị thương hiệu', '回顧與展望': 'Nhìn lại và hướng tới',
+  '工作': 'Công việc', '團隊': 'Đội nhóm', '公司': 'Công ty', '想說的話': 'Điều muốn nói' };
+const FIELD_VI = {
+  ach: ['Ba thành quả lớn nhất trong năm', 'Những việc bạn tự hào nhất và muốn được ghi nhận, hãy viết cụ thể'],
+  r1: ['Hoàn thành mục tiêu', 'Hoàn thành các mục tiêu và nhiệm vụ được giao trong năm'],
+  r2: ['Chất lượng công việc', 'Sản phẩm chính xác, tỉ mỉ, ít khi phải làm lại'],
+  r3: ['Hiệu suất và đúng hạn', 'Hoàn thành đúng thời hạn, sử dụng tốt thời gian và nguồn lực'],
+  s1: ['Năng lực chuyên môn', 'Có kiến thức và kỹ năng cần thiết cho công việc'],
+  s2: ['Học hỏi và giải quyết vấn đề', 'Chủ động học điều mới, gặp vấn đề biết tìm cách giải quyết'],
+  t1: ['Giao tiếp và phối hợp', 'Giao tiếp rõ ràng, phối hợp tốt với đồng nghiệp và các bộ phận khác'],
+  t2: ['Hỗ trợ người khác', 'Sẵn sàng chia sẻ và giúp đỡ để cả nhóm tốt hơn'],
+  a1: ['Trách nhiệm và chủ động', 'Nói là làm, chủ động phát hiện và xử lý vấn đề'],
+  a2: ['Giá trị thương hiệu', 'Đặt khách hàng và thương hiệu lên trước, giữ gìn chất lượng và hình ảnh của enchantée'],
+  challenge: ['Thử thách lớn nhất', 'Việc khó khăn nhất trong năm và bạn đã đối mặt thế nào'],
+  goal: ['Mục tiêu năm tới', 'Điều bạn muốn đạt được hoặc học được nhất trong năm tới'],
+  support: ['Hỗ trợ cần thiết', 'Bạn mong công ty hoặc quản lý hỗ trợ điều gì'],
+  p1: ['Giao tiếp thuận lợi', 'Khi làm việc cùng, đồng nghiệp này giao tiếp rõ ràng, dễ phối hợp'],
+  p2: ['Đáng tin cậy', 'Đã hứa là làm, giao việc đúng hạn'],
+  p3: ['Chủ động hỗ trợ', 'Khi tôi cần giúp, đồng nghiệp này sẵn sàng hỗ trợ'],
+  p4: ['Chuyên môn vững', 'Giao việc cho đồng nghiệp này tôi rất yên tâm'],
+  praise: ['Điểm đáng ghi nhận', 'Viết một câu về điều bạn quý nhất ở đồng nghiệp này'],
+  better: ['Có thể tốt hơn', 'Viết một câu về điều bạn mong đồng nghiệp điều chỉnh'],
+  v1: ['Cảm giác thành tựu', 'Công việc năm nay mang lại cho tôi cảm giác thành tựu'],
+  v2: ['Phát huy sở trường', 'Sở trường của tôi được phát huy tốt trong công việc'],
+  v3: ['Học hỏi và phát triển', 'Tôi có cơ hội học hỏi và phát triển ở công ty'],
+  v4: ['Làm việc nhóm', 'Tôi làm việc vui vẻ với đồng nghiệp trong nhóm'],
+  v5: ['Quản lý hỗ trợ', 'Quản lý của tôi hỗ trợ và tôn trọng tôi'],
+  v6: ['Khối lượng công việc', 'Khối lượng công việc và áp lực nằm trong khả năng của tôi'],
+  v7: ['Đối xử công bằng', 'Đóng góp của tôi được ghi nhận và tôi được đối xử công bằng'],
+  v8: ['Sẵn sàng giới thiệu', 'Tôi sẽ giới thiệu bạn bè đến làm việc tại enchantée'],
+  v9: ['Mong muốn gắn bó', 'Một năm nữa, tôi vẫn muốn làm việc tại enchantée'],
+  happy: ['Điều vui nhất năm nay', ''],
+  change: ['Một điều muốn thay đổi nhất', 'Nếu có thể thay đổi một điều ở công ty hoặc trong công việc'],
+  private: ['Điều muốn nói với Giám đốc điều hành', 'Bạn có thể nói bất cứ điều gì, chỉ Giám đốc điều hành xem được'],
+  meet: ['Muốn gặp riêng Giám đốc điều hành', '']
+};
+
+// 依請求語言回傳錯誤訊息；LANG 在每次 api() 呼叫時設定
+let LANG = 'zh';
+function err_(zh, vi, code) {
+  const e = new Error(LANG === 'vi' && vi ? vi : zh);
+  e.code = code || '';
+  return e;
+}
+function label_(f) { return LANG === 'vi' && FIELD_VI[f.k] ? FIELD_VI[f.k][0] : f.label; }
 
 function scoreFields_() {
   const out = [];
@@ -128,8 +178,7 @@ const RESULT_HEADERS = ['年度', '編號', '姓名', '部門', '主管評分', 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('績效評核')
     .addItem('① 初始化工作表', 'setup')
-    .addItem('② 產生專屬連結', 'generateLinks')
-    .addItem('③ 匯出評核結果', 'writeResults')
+    .addItem('② 匯出評核結果', 'writeResults')
     .addToUi();
 }
 
@@ -140,9 +189,9 @@ function setup() {
   DEFAULT_SETTINGS.forEach(row => { if (!have[row[0]]) appendRow_(SHEETS.settings, row); });
 
   if (ensureSheet_(SHEETS.roster, ROSTER_HEADERS)) {
-    appendRow_(SHEETS.roster, ['E000', '（範例）執行長', '管理', '執行長', '', '', '執行長', '', '', '', '']);
-    appendRow_(SHEETS.roster, ['E001', '（範例）王主管', '行銷', '行銷主管', 'E000', '2020-03-01', '', 'E002', '', '', '']);
-    appendRow_(SHEETS.roster, ['E002', '（範例）陳同仁', '行銷', '行銷專員', 'E001', '2023-06-15', '', 'E001', '', '', '']);
+    appendRow_(SHEETS.roster, ['E000', '（範例）執行長', '管理', '執行長', '', '', '執行長', 'ceo@example.com', '', '', '']);
+    appendRow_(SHEETS.roster, ['E001', '（範例）王主管', '行銷', '行銷主管', 'E000', '2020-03-01', '', 'manager@example.com', '', '', '']);
+    appendRow_(SHEETS.roster, ['E002', '（範例）陳同仁', '行銷', '行銷專員', 'E001', '2023-06-15', '', 'staff@example.com', 'vi', '', '']);
   }
   if (ensureSheet_(SHEETS.kpi, ['部門', '指標1', '指標2', '指標3'])) {
     DEFAULT_KPIS.forEach(r => appendRow_(SHEETS.kpi, r));
@@ -151,25 +200,6 @@ function setup() {
   ensureSheet_(SHEETS.thanks, THANKS_HEADERS);
   ensureSheet_(SHEETS.calib, CALIB_HEADERS);
   ensureSheet_(SHEETS.result, RESULT_HEADERS);
-}
-
-function generateLinks() {
-  const settings = readSettings_();
-  let url = String(settings['網頁網址'] || '').trim();
-  if (!url) { try { url = ScriptApp.getService().getUrl() || ''; } catch (e) { url = ''; } }
-  if (!url) throw new Error('請先部署網頁應用程式，並把網址貼到「設定」工作表的「網頁網址」');
-  const sh = ss_().getSheetByName(SHEETS.roster);
-  const header = headerOf_(sh);
-  const cT = header.indexOf('Token') + 1, cL = header.indexOf('專屬連結') + 1;
-  readTable_(SHEETS.roster).forEach(r => {
-    if (!String(r['編號']).trim()) return;
-    let token = String(r['Token'] || '').trim();
-    if (!token) {
-      token = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 32);
-      sh.getRange(r._row, cT, 1, 1).setValues([[token]]);
-    }
-    sh.getRange(r._row, cL, 1, 1).setValues([[url + '?t=' + token]]);
-  });
 }
 
 function writeResults() {
@@ -189,23 +219,88 @@ function writeResults() {
 
 /* ───────────── 網頁入口 ───────────── */
 
-function doGet(e) {
-  const token = String((e && e.parameter && e.parameter.t) || '').replace(/[^A-Za-z0-9]/g, '');
-  const t = HtmlService.createTemplateFromFile('index');
-  t.boot = JSON.stringify({ token: token });
-  return t.evaluate().setTitle('樂朗奇 年度績效評核')
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('index').setTitle('樂朗奇 年度績效評核')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
 function api(action, payloadJson) {
   try {
     const p = JSON.parse(payloadJson || '{}');
-    const handlers = { boot: boot_, save: save_, dashboard: dashboard_, setFinal: setFinal_ };
+    LANG = p.lang === 'vi' ? 'vi' : 'zh';
+    const handlers = { requestCode: requestCode_, verifyCode: verifyCode_, logout: logout_,
+      boot: boot_, save: save_, dashboard: dashboard_, setFinal: setFinal_ };
     if (!handlers[action]) throw new Error('不支援的操作');
     return JSON.stringify({ ok: true, data: handlers[action](p) });
   } catch (err) {
-    return JSON.stringify({ ok: false, error: String((err && err.message) || err) });
+    return JSON.stringify({ ok: false, error: String((err && err.message) || err), code: (err && err.code) || '' });
   }
+}
+
+/* ───────────── Email 驗證碼登入 ───────────── */
+
+function normEmail_(v) { return String(v || '').trim().toLowerCase(); }
+function randomDigits_(n) {
+  let out = '';
+  while (out.length < n) out += String(parseInt(Utilities.getUuid().replace(/-/g, '').slice(0, 8), 16));
+  return out.slice(-n);
+}
+function props_() { return PropertiesService.getScriptProperties(); }
+
+function requestCode_(p) {
+  const email = normEmail_(p.email);
+  const ctx = ctx_();
+  const me = email && ctx.people.filter(x => x.email === email)[0];
+  if (!me) throw err_('找不到這個 Email，請確認是否輸入正確，或洽管理部', 'Không tìm thấy email này. Vui lòng kiểm tra lại hoặc liên hệ bộ phận quản lý.');
+  const cache = CacheService.getScriptCache();
+  const sent = Number(cache.get('sent_' + email) || 0);
+  if (sent >= 5) throw err_('驗證碼寄送次數過多，請一小時後再試', 'Bạn đã yêu cầu mã quá nhiều lần. Vui lòng thử lại sau một giờ.');
+  const code = randomDigits_(6);
+  cache.put('code_' + email, JSON.stringify({ code: code, tries: 0 }), 600);
+  cache.put('sent_' + email, String(sent + 1), 3600);
+  MailApp.sendEmail({
+    to: email, name: '樂朗奇 績效評核',
+    subject: '樂朗奇績效評核 登入驗證碼 ' + code,
+    body: me.name + ' 您好，\n\n您的登入驗證碼是：' + code + '\n驗證碼 10 分鐘內有效，請勿提供給他人。\n\n' +
+      'Mã đăng nhập của bạn là: ' + code + '\nMã có hiệu lực trong 10 phút. Vui lòng không chia sẻ cho người khác.\n\n樂朗奇 enchantée'
+  });
+  return { sent: true };
+}
+
+function verifyCode_(p) {
+  const email = normEmail_(p.email);
+  const cache = CacheService.getScriptCache();
+  const raw = cache.get('code_' + email);
+  const bad = () => err_('驗證碼不正確或已過期，請重新取得', 'Mã không đúng hoặc đã hết hạn. Vui lòng lấy mã mới.');
+  if (!raw) throw bad();
+  const rec = JSON.parse(raw);
+  if (rec.tries >= 5) { cache.remove('code_' + email); throw bad(); }
+  if (String(p.code || '').replace(/\D/g, '') !== rec.code) {
+    rec.tries++;
+    cache.put('code_' + email, JSON.stringify(rec), 600);
+    throw err_('驗證碼不正確，請再確認', 'Mã không đúng, vui lòng kiểm tra lại.');
+  }
+  cache.remove('code_' + email);
+  const ctx = ctx_();
+  const me = ctx.people.filter(x => x.email === email)[0];
+  if (!me) throw bad();
+  const days = num_(ctx.settings['登入有效天數'], 30);
+  const token = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
+  const store = props_(), now = Date.now();
+  const all = store.getProperties();
+  Object.keys(all).forEach(k => {
+    if (k.indexOf('S_') !== 0) return;
+    const v = JSON.parse(all[k]);
+    if (v.exp < now) store.deleteProperty(k);
+  });
+  store.setProperty('S_' + token, JSON.stringify({ id: me.id, exp: now + days * 86400000 }));
+  return { token: token };
+}
+
+function logout_(p) {
+  const token = String(p.token || '').replace(/[^A-Za-z0-9]/g, '');
+  if (token) props_().deleteProperty('S_' + token);
+  return { ok: true };
 }
 
 /* ───────────── 試算表存取 ───────────── */
@@ -318,7 +413,7 @@ function ctx_() {
     id: String(r['編號']).trim(), name: String(r['姓名']).trim(),
     dept: String(r['部門'] || '').trim(), title: String(r['職稱'] || '').trim(),
     isCEO: String(r['角色'] || '').trim() === '執行長',
-    token: String(r['Token'] || '').trim(),
+    email: normEmail_(r['Email']), lang: String(r['語言'] || '').trim().toLowerCase() === 'vi' ? 'vi' : 'zh',
     _mgr: String(r['直屬主管'] || '').trim(), _raters: String(r['同儕評核人'] || ''),
     _join: toDate_(r['到職日']), _part: String(r['參加評等'] || '').trim()
   }));
@@ -369,8 +464,12 @@ function rowToAnswers_(form, row) {
 
 function auth_(ctx, token) {
   token = String(token || '').replace(/[^A-Za-z0-9]/g, '');
-  const me = token && ctx.people.filter(p => p.token && p.token === token)[0];
-  if (!me) throw new Error('連結無效，請向管理部索取您的專屬連結');
+  const expired = () => err_('登入已過期，請重新登入', 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.', 'SESSION');
+  const raw = token && props_().getProperty('S_' + token);
+  if (!raw) throw expired();
+  const sess = JSON.parse(raw);
+  const me = sess.exp > Date.now() && ctx.byId[sess.id];
+  if (!me) throw expired();
   return me;
 }
 
@@ -381,6 +480,13 @@ function brief_(p) { return { id: p.id, name: p.name, dept: p.dept, title: p.tit
 function reportsOf_(ctx, me) { return ctx.people.filter(p => p.mgrId === me.id && p.rated); }
 function assignedTo_(ctx, me) { return ctx.people.filter(p => p.rated && p.raterIds.indexOf(me.id) >= 0); }
 function canPeer_(ctx, me) { return !me.isCEO && (me.rated || assignedTo_(ctx, me).length > 0); }
+function peerPool_(ctx, me) {
+  return ctx.people.filter(x => x.rated && x.id !== me.id && x.id !== me.mgrId && x.mgrId !== me.id);
+}
+function minPeerGive_(ctx, me) {
+  if (!me.rated) return 0;
+  return Math.min(num_(ctx.settings['同儕回饋最少人數'], 3), peerPool_(ctx, me).length);
+}
 
 function tasks_(ctx, me) {
   const st = ok => ok ? 'done' : 'todo';
@@ -390,7 +496,8 @@ function tasks_(ctx, me) {
   if (canPeer_(ctx, me)) {
     const need = assignedTo_(ctx, me);
     const done = id => ctx.peer.some(r => r.from === me.id && r.to === id);
-    t.peer = need.length ? st(need.every(p => done(p.id))) : (ctx.peer.some(r => r.from === me.id) ? 'done' : 'optional');
+    const given = ctx.peer.filter(r => r.from === me.id).length, min = minPeerGive_(ctx, me);
+    t.peer = (need.length || min) ? st(need.every(p => done(p.id)) && given >= min) : (given ? 'done' : 'optional');
   }
   const minThanks = num_(ctx.settings['感謝卡最少張數'], 3);
   t.thanks = st(ctx.thanks.filter(r => r.from === me.id).length >= Math.min(minThanks, ctx.people.length - 1));
@@ -401,7 +508,12 @@ function tasks_(ctx, me) {
 
 function clientForms_() {
   const out = {};
-  Object.keys(FORMS).forEach(k => { out[k] = { fields: FORMS[k].fields }; });
+  const scaleVi = sc => sc === SCALE ? SCALE_VI : AGREE_VI;
+  Object.keys(FORMS).forEach(k => {
+    out[k] = { fields: FORMS[k].fields.map(f => Object.assign({}, f, {
+      vlabel: (FIELD_VI[f.k] || [])[0] || '', vdesc: (FIELD_VI[f.k] || [])[1] || '',
+      vgroup: GROUP_VI[f.group] || '', vscale: f.scale ? scaleVi(f.scale) : undefined })) };
+  });
   return out;
 }
 
@@ -411,17 +523,17 @@ function boot_(p) {
   const s = ctx.settings;
   const one = (list, to) => { const r = list.filter(x => x.from === me.id && x.to === to)[0]; return r ? r.a : null; };
   const reps = reportsOf_(ctx, me);
-  const repIds = reps.map(r => r.id);
 
   const assigned = assignedTo_(ctx, me).map(x => x.id);
   const ratedByMe = ctx.peer.filter(r => r.from === me.id).map(r => r.to);
   const peerIds = assigned.concat(ratedByMe.filter(id => assigned.indexOf(id) < 0));
 
   return {
-    me: { id: me.id, name: me.name, dept: me.dept, title: me.title, isCEO: me.isCEO, rated: me.rated },
+    me: { id: me.id, name: me.name, dept: me.dept, title: me.title, isCEO: me.isCEO, rated: me.rated, lang: me.lang },
     cfg: {
       year: ctx.year, open: yes_(s['開放填寫']), deadline: dateText_(s['截止日']),
-      minThanks: Math.min(num_(s['感謝卡最少張數'], 3), ctx.people.length - 1), tags: THANKS_TAGS
+      minThanks: Math.min(num_(s['感謝卡最少張數'], 3), ctx.people.length - 1), tags: THANKS_TAGS,
+      minPeers: minPeerGive_(ctx, me)
     },
     forms: clientForms_(),
     tasks: tasks_(ctx, me),
@@ -430,8 +542,7 @@ function boot_(p) {
     canPeer: canPeer_(ctx, me),
     peers: peerIds.map(id => Object.assign(brief_(ctx.byId[id]),
       { assigned: assigned.indexOf(id) >= 0, answers: one(ctx.peer, id) })),
-    peerCandidates: ctx.people.filter(x => x.rated && x.id !== me.id && x.id !== me.mgrId &&
-      repIds.indexOf(x.id) < 0 && peerIds.indexOf(x.id) < 0).map(brief_),
+    peerCandidates: canPeer_(ctx, me) ? peerPool_(ctx, me).filter(x => peerIds.indexOf(x.id) < 0).map(brief_) : [],
     thanks: ctx.thanks.filter(r => r.from === me.id).map(r => ({ to: r.to, tag: r.tag, text: r.text })),
     directory: ctx.people.filter(x => x.id !== me.id).map(brief_),
     reports: reps.map(r => Object.assign(brief_(r), {
@@ -455,16 +566,16 @@ function validate_(form, answers) {
     const v = answers ? answers[f.k] : undefined;
     if (f.type === 'score') {
       const n = Number(v);
-      if (!(n >= 1 && n <= 5 && Math.floor(n) === n)) throw new Error('「' + f.label + '」尚未評分');
+      if (!(n >= 1 && n <= 5 && Math.floor(n) === n)) throw err_('「' + f.label + '」尚未評分', 'Chưa chấm điểm: ' + label_(f));
       out[f.label] = n;
     } else if (f.type === 'choice') {
       if (f.options.indexOf(v) < 0) {
-        if (f.req) throw new Error('「' + f.label + '」尚未選擇');
+        if (f.req) throw err_('「' + f.label + '」尚未選擇', 'Chưa chọn: ' + label_(f));
         out[f.label] = '';
       } else out[f.label] = v;
     } else {
       const t = cleanText_(v, 2000);
-      if (f.req && !t) throw new Error('「' + f.label + '」尚未填寫');
+      if (f.req && !t) throw err_('「' + f.label + '」尚未填寫', 'Chưa điền: ' + label_(f));
       out[f.label] = t;
     }
   });
@@ -477,7 +588,7 @@ function save_(p) {
   try {
     const ctx = ctx_();
     const me = auth_(ctx, p.token);
-    if (!yes_(ctx.settings['開放填寫'])) throw new Error('本年度評核已截止，無法再修改');
+    if (!yes_(ctx.settings['開放填寫'])) throw err_('本年度評核已截止，無法再修改', 'Đợt đánh giá năm nay đã kết thúc, không thể chỉnh sửa.');
     const form = String(p.form);
     const keyOf = (to) => ({ '年度': ctx.year, '時間': new Date(), '填寫人編號': me.id, '填寫人': me.name,
       '對象編號': to.id, '對象': to.name });
@@ -486,15 +597,15 @@ function save_(p) {
 
     if (form === 'thanks') {
       const cards = (p.answers && p.answers.cards) || [];
-      if (!Array.isArray(cards) || cards.length > 60) throw new Error('資料格式錯誤');
+      if (!Array.isArray(cards) || cards.length > 60) throw err_('資料格式錯誤', 'Dữ liệu không hợp lệ.');
       const seen = {};
       const rows = cards.map(c => {
         const to = ctx.byId[String(c.to)];
-        if (!to || to.id === me.id) throw new Error('請選擇要感謝的同事');
-        if (seen[to.id]) throw new Error('每位同事只能寫一張感謝卡：' + to.name);
+        if (!to || to.id === me.id) throw err_('請選擇要感謝的同事', 'Vui lòng chọn đồng nghiệp bạn muốn cảm ơn.');
+        if (seen[to.id]) throw err_('每位同事只能寫一張感謝卡：' + to.name, 'Mỗi đồng nghiệp chỉ viết một thiệp: ' + to.name);
         seen[to.id] = true;
         const text = cleanText_(c.text, 300);
-        if (!text) throw new Error('給 ' + to.name + ' 的感謝卡還沒寫內容');
+        if (!text) throw err_('給 ' + to.name + ' 的感謝卡還沒寫內容', 'Thiệp gửi ' + to.name + ' chưa có nội dung.');
         return Object.assign(keyOf(to), { '標籤': THANKS_TAGS.indexOf(c.tag) >= 0 ? c.tag : '', '內容': text });
       });
       deleteRows_(SHEETS.thanks, r => String(r['年度']).trim() === ctx.year && String(r['填寫人編號']).trim() === me.id);
@@ -502,24 +613,24 @@ function save_(p) {
       return { saved: true };
     }
 
-    if (!FORMS[form]) throw new Error('不支援的問卷');
+    if (!FORMS[form]) throw err_('不支援的問卷', 'Biểu mẫu không hợp lệ.');
     let target = me;
     if (form === 'self') {
-      if (!me.rated) throw new Error('您本年度不需要填寫自評');
+      if (!me.rated) throw err_('您本年度不需要填寫自評', 'Năm nay bạn không cần tự đánh giá.');
     } else if (form === 'voice') {
       if (me.isCEO) throw new Error('執行長不需要填寫心聲問卷');
     } else {
       target = ctx.byId[String(p.target)];
-      if (!target || target.id === me.id || !target.rated) throw new Error('評核對象不正確');
+      if (!target || target.id === me.id || !target.rated) throw err_('評核對象不正確', 'Người được đánh giá không hợp lệ.');
       if (form === 'mgr' && target.mgrId !== me.id) throw new Error('只能評核您的直屬同仁');
       if (form === 'peer') {
-        if (!canPeer_(ctx, me)) throw new Error('您本年度不需要填寫同儕回饋');
+        if (!canPeer_(ctx, me)) throw err_('您本年度不需要填寫同儕回饋', 'Năm nay bạn không cần nhận xét đồng nghiệp.');
         const assigned = target.raterIds.indexOf(me.id) >= 0;
         if (!assigned && (target.mgrId === me.id || me.mgrId === target.id)) {
-          throw new Error('直屬主管與部屬之間不使用同儕回饋');
+          throw err_('直屬主管與部屬之間不使用同儕回饋', 'Không dùng nhận xét đồng nghiệp giữa quản lý trực tiếp và nhân viên.');
         }
         if (p.answers === null) {
-          if (assigned) throw new Error('這位同事是指定的評核對象，無法移除');
+          if (assigned) throw err_('這位同事是指定的評核對象，無法移除', 'Đồng nghiệp này được chỉ định, không thể xóa.');
           deleteRows_(FORMS.peer.sheet, same(target.id));
           return { saved: true };
         }

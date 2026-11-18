@@ -6,36 +6,32 @@ function seed({ fill = true } = {}) {
   be.api.setup();
   const roster = be.sheets['名冊'];
   roster.data = [roster.data[0]];
-  const add = (...r) => roster.data.push([...r, '', '', ''].slice(0, 11));
-  add('E000', '範例執行長', '管理', '執行長', '', '2015-01-01', '執行長', '', '');
+  const add = (id, name, dept, title, mgr, joined, role, lang) => roster.data.push([id, name, dept, title, mgr, joined, role, id.toLowerCase() + '@example.com', lang || '', '', '']);
+  add('E000', '範例執行長', '管理', '執行長', '', '2015-01-01', '執行長');
   const depts = ['行銷', '設計', '生產', '銷售'];
   let n = 0;
   depts.forEach((d, di) => {
     const mgr = 'E' + String(++n).padStart(3, '0');
-    add(mgr, d + '主管', d, d + '主管', '範例執行長', '2018-05-01', '', '', '');
+    add(mgr, d + '主管', d, d + '主管', '範例執行長', '2018-05-01', '');
     for (let i = 1; i <= 3; i++) {
       const id = 'E' + String(++n).padStart(3, '0');
       const joined = (di === 3 && i === 3) ? '2026-11-01' : '2022-0' + (i + 1) + '-15';
-      add(id, d + '同仁' + i, d, d + '專員', mgr, joined, '', '', '');
+      add(id, d + '同仁' + i, d, d + '專員', mgr, joined, '', (di === 2 && i === 1) ? 'vi' : '');
     }
-  });
-  // 指定同儕評核人：同部門另外兩位同仁加上一位跨部門同仁
-  const rows = roster.data.slice(1);
-  rows.forEach(r => {
-    if (r[6] === '執行長') return;
-    const mates = rows.filter(x => x[2] === r[2] && x[0] !== r[0] && x[0] !== r[4] && x[4] !== r[0] && x[6] !== '執行長').map(x => x[0]);
-    const other = rows.filter(x => x[2] !== r[2] && x[6] !== '執行長' && x[3].includes('主管') === r[3].includes('主管')).map(x => x[0]);
-    r[7] = mates.slice(0, 2).concat(other.slice(0, r[3].includes('主管') ? 3 : 1)).join(',');
   });
   be.sheets['設定'].data.forEach(r => {
     if (r[0] === '年度') r[1] = 2026;
     if (r[0] === '截止日') r[1] = '2026-12-11';
     if (r[0] === '月數_S') r[1] = 3; if (r[0] === '月數_A') r[1] = 2; if (r[0] === '月數_B') r[1] = 1.5; if (r[0] === '月數_C') r[1] = 1;
   });
-  be.api.generateLinks();
-  const tokens = {};
-  roster.data.slice(1).forEach(r => { tokens[r[0]] = r[9]; });
   const call = (action, payload) => JSON.parse(be.api.api(action, JSON.stringify(payload)));
+  const lastCode = () => be.outbox[be.outbox.length - 1].subject.match(/\d{6}/)[0];
+  const tokens = {};
+  roster.data.slice(1).forEach(r => {
+    const email = r[7];
+    if (!call('requestCode', { email }).ok) throw new Error('requestCode failed');
+    tokens[r[0]] = call('verifyCode', { email, code: lastCode() }).data.token;
+  });
 
   if (fill) {
     let seedN = 7;
@@ -59,7 +55,7 @@ function seed({ fill = true } = {}) {
           scores(['v1', 'v2', 'v3', 'v4', 'v5', 'v6', 'v7', 'v8', 'v9'], low ? 2 : 4),
           { happy: '春酒抽到獎', change: low ? '希望排班可以更早公布' : '', private: low ? '=最近在考慮其他機會' : '', meet: low ? '是' : '否' }) }));
       }
-      b.peers.forEach(p => must(call('save', { token: t, form: 'peer', target: p.id,
+      b.peers.concat(b.peerCandidates.filter((_, i) => (i + idx) % 3 === 0).slice(0, 4)).forEach(p => must(call('save', { token: t, form: 'peer', target: p.id,
         answers: Object.assign(scores(['p1', 'p2', 'p3', 'p4'], 4), { praise: '很可靠，交辦的事都有回音', better: '' }) })));
       const others = b.directory.filter((_, i) => (i + idx) % 4 === 0).slice(0, 3);
       must(call('save', { token: t, form: 'thanks', answers: { cards: others.map(o => ({ to: o.id, tag: '最佳支援', text: '謝謝你在旺季幫忙頂班' })) } }));
@@ -72,7 +68,7 @@ function seed({ fill = true } = {}) {
       r1: 5, r2: 5 - (i % 2), r3: 4, s1: 5, s2: 4, t1: 4 + (i % 2), t2: 4, a1: 5, a2: 5,
       kpi: '', strength: '帶領部門達成年度目標', improve: '', develop: '', risk: '低', keyman: '是' } })));
   }
-  return { be, tokens, call };
+  return { be, tokens, call, lastCode };
 }
 
 module.exports = { seed };

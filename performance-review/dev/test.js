@@ -5,7 +5,7 @@ const { seed } = require('./seed');
 const { start } = require('./server');
 
 function logic() {
-  const { be, tokens, call } = seed();
+  const { be, tokens, call, lastCode } = seed();
   const dash = call('dashboard', { token: tokens.E000 });
   assert(dash.ok, dash.error);
   const d = dash.data;
@@ -23,7 +23,16 @@ function logic() {
 
   // 權限
   assert(!call('dashboard', { token: tokens.E002 }).ok, '同仁不能看儀表板');
-  assert(!call('boot', { token: 'nope' }).ok);
+  assert.strictEqual(call('boot', { token: 'nope' }).code, 'SESSION');
+  assert(!call('requestCode', { email: 'stranger@example.com' }).ok, '名冊外的 Email 不能登入');
+  assert(call('requestCode', { email: ' E002@Example.com ' }).ok, 'Email 不分大小寫');
+  for (let i = 0; i < 5; i++) assert(!call('verifyCode', { email: 'e002@example.com', code: '999999' }).ok);
+  assert(!call('verifyCode', { email: 'e002@example.com', code: lastCode() }).ok, '錯誤五次後驗證碼作廢');
+  assert(call('logout', { token: tokens.E015 }).ok);
+  assert.strictEqual(call('boot', { token: tokens.E015 }).code, 'SESSION', '登出後 session 失效');
+  const vi = call('save', { token: tokens.E002, lang: 'vi', form: 'self', target: 'E002', answers: {} });
+  assert(/Chưa/.test(vi.error), '越南文錯誤訊息');
+  assert.strictEqual(call('boot', { token: tokens.E010 }).data.me.lang, 'vi');
   const b2 = call('boot', { token: tokens.E002 }).data;
   assert.strictEqual(JSON.stringify(b2).includes('最近在考慮'), false, '同仁看不到別人的心聲');
   assert.strictEqual(b2.received, null, '感謝卡未公開前看不到');
@@ -57,7 +66,7 @@ function logic() {
 
 async function ui(outDir) {
   const { chromium } = require('playwright');
-  const { server, tokens, call } = await start(8766, { fill: false });
+  const { server, tokens, call, lastCode } = await start(8766, { fill: false });
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
   const page = await ctx.newPage();
@@ -72,8 +81,14 @@ async function ui(outDir) {
   const noOverflow = async () => assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), '頁面不可橫向捲動');
 
   // 同仁：自評
-  await page.goto('http://localhost:8766/?t=' + tokens.E002);
+  await page.goto('http://localhost:8766/');
+  await page.waitForSelector('#lg_email'); await shot('00-login');
+  await page.fill('#lg_email', 'nobody@example.com'); await page.click('[data-login="send"]');
+  await page.waitForSelector('.toast'); await page.waitForSelector('#lg_email');
+  await page.fill('#lg_email', 'e002@example.com'); await page.click('[data-login="send"]');
+  await page.waitForSelector('#lg_code'); await page.fill('#lg_code', lastCode()); await page.click('[data-login="verify"]');
   await page.waitForSelector('.task'); await shot('01-home'); await noOverflow();
+  assert.strictEqual(await page.locator('[data-go="peerList"] .pill').innerText(), '待填寫');
   await page.click('[data-go="self"]');
   await page.click('[data-submit]');
   assert(await page.locator('.q.miss').count() > 0, '未填完會標示必填');
@@ -88,10 +103,12 @@ async function ui(outDir) {
   await page.click('[data-submit]'); await page.waitForSelector('.task');
   // 同儕
   await page.click('[data-go="peerList"]'); await shot('03-peers');
-  await page.locator('[data-peer]').first().click(); await fillScores();
-  await page.fill('#f_praise', '很可靠'); await page.click('[data-submit]'); await page.waitForSelector('#peerAdd');
-  await page.selectOption('#peerAdd', { index: 1 }); await fillScores(); await page.click('[data-submit]');
-  await page.waitForSelector('#peerAdd');
+  for (let i = 0; i < 3; i++) {
+    await page.selectOption('#peerAdd', { index: 1 }); await fillScores();
+    if (i === 0) await page.fill('#f_praise', '很可靠');
+    await page.click('[data-submit]'); await page.waitForSelector('#peerAdd');
+  }
+  await shot('03b-peers-done');
   await page.click('[data-go="home"]');
   // 感謝卡
   await page.click('[data-go="thanks"]');
@@ -102,10 +119,15 @@ async function ui(outDir) {
   await shot('05-home-progress');
   const me = call('boot', { token: tokens.E002 }).data;
   assert.strictEqual(me.tasks.self, 'done'); assert.strictEqual(me.tasks.voice, 'done'); assert.strictEqual(me.tasks.thanks, 'done');
-  assert.strictEqual(me.peers.filter(p => p.answers).length, 2);
+  assert.strictEqual(me.peers.filter(p => p.answers).length, 3); assert.strictEqual(me.tasks.peer, 'done');
 
+  // 越南文
+  await page.click('[data-lang="vi"]'); await page.waitForSelector('text=Tự đánh giá'); await shot('07-home-vi');
+  await page.click('[data-go="voice"]'); await page.waitForSelector('text=Mong muốn gắn bó'); await shot('08-voice-vi'); await noOverflow();
+  await page.click('[data-go="home"]'); await page.click('[data-lang="zh"]');
   // 主管評
-  await page.goto('http://localhost:8766/?t=' + tokens.E001);
+  await page.evaluate(tk => localStorage.setItem('pr:session', tk), tokens.E001);
+  await page.goto('http://localhost:8766/');
   await page.waitForSelector('.task'); await page.click('[data-go="mgrList"]');
   await page.locator('[data-report]').first().click(); await fillScores();
   await page.fill('#kpi0', '營收成長 12%'); await page.fill('#f_strength', '主動補位');
@@ -121,7 +143,9 @@ async function ui(outDir) {
   const b2 = await chromium.launch();
   const p2 = await (await b2.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 })).newPage();
   p2.on('pageerror', e => errors.push(String(e)));
-  await p2.goto('http://localhost:8767/?t=' + full.tokens.E000);
+  await p2.goto('http://localhost:8767/');
+  await p2.evaluate(tk => localStorage.setItem('pr:session', tk), full.tokens.E000);
+  await p2.reload();
   await p2.waitForSelector('[data-go="dash"]'); await p2.click('[data-go="dash"]');
   await p2.waitForSelector('.tabs');
   const tabs = ['progress', 'result', 'care', 'thanks', 'mood'];

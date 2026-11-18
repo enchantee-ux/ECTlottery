@@ -58,7 +58,7 @@ button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-
 .scale button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .scalecap { font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; }
 .scalecap b { color: var(--accent); }
-textarea, input[type=text], select { font: inherit; color: inherit; width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--card); }
+textarea, input, select { font: inherit; color: inherit; width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--card); }
 textarea { min-height: 96px; resize: vertical; }
 .chip { border: 1px solid var(--line); background: var(--card); border-radius: 99px; padding: 8px 16px; font-size: 14px; }
 .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -91,23 +91,86 @@ td.hi { background: var(--good-soft); }
 </style>
 </head>
 <body>
-<div id="app"><p class="center muted">載入中…</p></div>
-<script>window.BOOT = <?!= boot ?>;</script>
+<div id="app"></div>
 <script>
 (function () {
 'use strict';
-var token = (window.BOOT && window.BOOT.token) || '';
 var app = document.getElementById('app');
-var D = null, DB = null, view = { name: 'home' }, F = null, busy = false;
+var D = null, DB = null, view = { name: 'home' }, F = null, busy = false, login = { step: 'email', email: '' };
+function store(k, v) {
+  try { if (v === undefined) return localStorage.getItem(k); v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {}
+  return null;
+}
+var token = store('pr:session') || '';
+var lang = store('pr:lang') || '';
+
+/* ───── 語言 ───── */
+var VI = {
+  '年度績效評核': 'Đánh giá hiệu suất cuối năm',
+  '請用您的公司 Email 登入，系統會寄一組驗證碼給您。': 'Vui lòng đăng nhập bằng email công ty. Hệ thống sẽ gửi mã xác nhận cho bạn.',
+  '寄送驗證碼': 'Gửi mã xác nhận', '處理中…': 'Đang xử lý…',
+  '驗證碼已寄到 {0}，10 分鐘內有效。沒收到請查看垃圾信件匣。': 'Mã xác nhận đã được gửi đến {0}, có hiệu lực trong 10 phút. Nếu chưa nhận được, hãy kiểm tra thư rác.',
+  '6 位數驗證碼': 'Mã xác nhận 6 chữ số', '登入': 'Đăng nhập', '換一個 Email': 'Dùng email khác', '登出': 'Đăng xuất',
+  '請輸入 Email': 'Vui lòng nhập email', '請輸入驗證碼': 'Vui lòng nhập mã xác nhận',
+  '載入中…': 'Đang tải…', '無法開啟': 'Không thể mở', '重新整理': 'Tải lại',
+  '已完成': 'Đã xong', '待填寫': 'Chưa làm', '選填': 'Tùy chọn', '不需填': 'Không cần',
+  '自評': 'Tự đánh giá', '回顧今年的成果與成長，約 8 分鐘': 'Nhìn lại thành quả và sự phát triển trong năm, khoảng 8 phút',
+  '心聲問卷': 'Khảo sát tâm tư', '只有執行長看得到，不影響年終，約 3 分鐘': 'Chỉ Giám đốc điều hành xem được, không ảnh hưởng đến thưởng cuối năm, khoảng 3 phút',
+  '同儕回饋': 'Nhận xét đồng nghiệp',
+  '為至少 {0} 位今年合作過的同事留下回饋，每位約 1 分鐘': 'Nhận xét cho ít nhất {0} đồng nghiệp bạn đã làm việc cùng trong năm, mỗi người khoảng 1 phút',
+  '為今年合作過的同事留下回饋，每位約 1 分鐘': 'Nhận xét cho đồng nghiệp bạn đã làm việc cùng trong năm, mỗi người khoảng 1 phút',
+  '感謝卡': 'Thiệp cảm ơn', '寫給至少 {0} 位同事，具名送出': 'Viết cho ít nhất {0} đồng nghiệp, có ghi tên người gửi',
+  '主管評核': 'Đánh giá của quản lý', '評核您的直屬同仁': 'Đánh giá nhân viên trực thuộc',
+  '{0}，辛苦了': '{0}, bạn đã vất vả rồi', '{0} 年度績效評核': 'Đánh giá hiệu suất năm {0}', '截止日 {0}': 'Hạn chót {0}',
+  '本年度評核已截止，目前只能檢視，無法修改。': 'Đợt đánh giá năm nay đã kết thúc. Bạn chỉ có thể xem, không thể chỉnh sửa.',
+  '全部完成了，謝謝您的用心填寫。截止日前仍可回來修改。': 'Bạn đã hoàn thành tất cả. Cảm ơn bạn! Trước hạn chót bạn vẫn có thể quay lại chỉnh sửa.',
+  '還有 <b>{0}</b> 項待完成，可以分次填寫，未送出的內容會暫存在這支手機。': 'Còn <b>{0}</b> mục chưa hoàn thành. Bạn có thể làm nhiều lần, nội dung chưa gửi sẽ được lưu tạm trên điện thoại này.',
+  '我收到的感謝卡': 'Thiệp cảm ơn tôi nhận được', '目前還沒有收到感謝卡。': 'Hiện chưa nhận được thiệp cảm ơn nào.',
+  '‹ 返回': '‹ Quay lại', '送出': 'Gửi', '更新並送出': 'Cập nhật và gửi', '送出中…': 'Đang gửi…', '已送出': 'Đã gửi',
+  '還有必填題目尚未完成': 'Vẫn còn câu bắt buộc chưa hoàn thành',
+  '請誠實回顧今年的表現。主管與執行長會看到這份內容。': 'Hãy nhìn lại trung thực về công việc năm nay. Quản lý và Giám đốc điều hành sẽ xem nội dung này.',
+  '這份問卷<b>只有執行長看得到</b>，您的主管看不到，也不會影響年終。請放心說真話。': 'Khảo sát này <b>chỉ Giám đốc điều hành xem được</b>. Quản lý của bạn không xem được và nó không ảnh hưởng đến thưởng cuối năm. Hãy yên tâm nói thật.',
+  '只評今年實際合作過的同事。回饋內容只有執行長看得到，轉達時不會顯示您的姓名。': 'Chỉ nhận xét những đồng nghiệp bạn thực sự làm việc cùng trong năm nay. Chỉ Giám đốc điều hành xem được nội dung, khi chuyển lời sẽ không hiển thị tên bạn.',
+  '請至少為 {0} 位同事填寫，目前已完成 {1} 位。': 'Vui lòng nhận xét ít nhất {0} đồng nghiệp. Bạn đã hoàn thành {1} người.',
+  '我的回饋對象': 'Đồng nghiệp tôi nhận xét', '・指定': '・Được chỉ định',
+  '還沒有選擇同事，請從下方新增。': 'Bạn chưa chọn đồng nghiệp nào. Hãy thêm ở bên dưới.',
+  '新增合作過的同事': 'Thêm đồng nghiệp đã làm việc cùng', '今年工作上有交集的同事，都歡迎留下回饋。': 'Bạn có thể nhận xét bất kỳ đồng nghiệp nào đã làm việc cùng trong năm nay.',
+  '選擇同事…': 'Chọn đồng nghiệp…', '給 {0} 的回饋': 'Nhận xét cho {0}',
+  '請依今年實際合作的經驗作答': 'Hãy trả lời dựa trên trải nghiệm làm việc thực tế trong năm nay', '移除這份回饋': 'Xóa nhận xét này',
+  '今年誰幫過你、誰讓你覺得有他真好？請寫給至少 {0} 位同事，不限部門。感謝卡會具名送給對方。': 'Năm nay ai đã giúp bạn, ai khiến bạn thấy thật may vì có họ? Hãy viết cho ít nhất {0} đồng nghiệp, không giới hạn bộ phận. Thiệp sẽ được gửi kèm tên bạn.',
+  '第 {0} 張': 'Thiệp {0}', '移除': 'Xóa', '要感謝誰？': 'Bạn muốn cảm ơn ai?',
+  '寫下具體的事，例如：謝謝你在中秋檔期幫我頂了三天的出貨': 'Hãy viết việc cụ thể, ví dụ: cảm ơn bạn đã giúp tôi ba ngày trong mùa Trung thu',
+  '＋ 再寫一張': '＋ Viết thêm thiệp', '送出感謝卡': 'Gửi thiệp cảm ơn', '請至少寫給 {0} 位同事': 'Vui lòng viết cho ít nhất {0} đồng nghiệp',
+  '其他': 'Khác', '連線失敗，請再試一次': 'Kết nối thất bại, vui lòng thử lại',
+  '是': 'Có', '否': 'Không', '低': 'Thấp', '中': 'Trung bình', '高': 'Cao',
+  '最佳支援': 'Hỗ trợ tốt nhất', '專業可靠': 'Chuyên nghiệp, đáng tin', '溫暖貼心': 'Ấm áp, chu đáo', '創意點子': 'Ý tưởng sáng tạo', '使命必達': 'Luôn hoàn thành nhiệm vụ'
+};
+function t(s) {
+  var a = arguments, r = (lang === 'vi' && VI[s]) || s;
+  return r.replace(/\{(\d)\}/g, function (_, i) { return a[Number(i) + 1]; });
+}
+function L(f, key) { return (lang === 'vi' && f['v' + key]) || f[key] || ''; }
+function langBar() {
+  return '<div class="row" style="justify-content:space-between"><div class="brand">enchantée</div><div class="wrap">' +
+    [['zh', '中文'], ['vi', 'Tiếng Việt']].map(function (x) {
+      return '<button class="chip ' + ((lang || 'zh') === x[0] ? 'on' : '') + '" data-lang="' + x[0] + '">' + x[1] + '</button>';
+    }).join('') + '</div></div>';
+}
 
 /* ───── 與後端溝通 ───── */
 function call(action, payload) {
-  payload = payload || {}; payload.token = token;
+  payload = payload || {}; payload.token = token; payload.lang = lang || 'zh';
   return new Promise(function (resolve, reject) {
-    function done(s) { var r = JSON.parse(s); r.ok ? resolve(r.data) : reject(new Error(r.error)); }
+    function done(s) {
+      var r = JSON.parse(s);
+      if (r.ok) return resolve(r.data);
+      var e = new Error(r.error); e.code = r.code;
+      if (r.code === 'SESSION') { token = ''; store('pr:session', null); D = null; login = { step: 'email', email: '' }; render(); }
+      reject(e);
+    }
     if (window.google && google.script && google.script.run) {
       google.script.run.withSuccessHandler(done)
-        .withFailureHandler(function (e) { reject(new Error((e && e.message) || '連線失敗，請再試一次')); })
+        .withFailureHandler(function () { reject(new Error(t('連線失敗，請再試一次'))); })
         .api(action, JSON.stringify(payload));
     } else {
       fetch('/api', { method: 'POST', body: JSON.stringify({ action: action, payload: payload }) })
@@ -120,20 +183,59 @@ function call(action, payload) {
 function esc(s) { return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 function toast(msg) {
   [].forEach.call(document.querySelectorAll('.toast'), function (x) { x.remove(); });
-  var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t);
-  setTimeout(function () { t.remove(); }, 2600);
+  var el = document.createElement('div'); el.className = 'toast'; el.textContent = msg; document.body.appendChild(el);
+  setTimeout(function () { el.remove(); }, 2600);
 }
 function go(name, arg) { view = { name: name, arg: arg }; F = null; render(); window.scrollTo(0, 0); }
 function draftKey(form, target) { return 'pr:' + D.cfg.year + ':' + D.me.id + ':' + form + ':' + target; }
-function getDraft(form, target) { try { return JSON.parse(localStorage.getItem(draftKey(form, target)) || 'null'); } catch (e) { return null; } }
-function setDraft(form, target, v) { try { v === null ? localStorage.removeItem(draftKey(form, target)) : localStorage.setItem(draftKey(form, target), JSON.stringify(v)); } catch (e) {} }
-function pill(st) { return '<span class="pill ' + st + '">' + ({ done: '已完成', todo: '待填寫', optional: '選填', na: '不需填' }[st]) + '</span>'; }
+function getDraft(form, target) { try { return JSON.parse(store(draftKey(form, target)) || 'null'); } catch (e) { return null; } }
+function setDraft(form, target, v) { store(draftKey(form, target), v === null ? null : JSON.stringify(v)); }
+function pill(st) { return '<span class="pill ' + st + '">' + t({ done: '已完成', todo: '待填寫', optional: '選填', na: '不需填' }[st]) + '</span>'; }
 function byId(list, id) { for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i]; return null; }
 function fmt(n) { return n === null || n === undefined ? '—' : n; }
 
-function load(keep) {
-  return call('boot').then(function (d) { D = d; if (!keep) view = { name: 'home' }; render(); })
-    .catch(function (e) { app.innerHTML = '<div class="center stack"><div class="brand">enchantée</div><h1>無法開啟</h1><p class="muted">' + esc(e.message) + '</p></div>'; });
+function load() {
+  if (!token) { D = null; return render(); }
+  app.innerHTML = '<p class="center muted">' + t('載入中…') + '</p>';
+  return call('boot').then(function (d) {
+    D = d; if (!lang) lang = d.me.lang === 'vi' ? 'vi' : 'zh';
+    view = { name: 'home' }; render();
+  }).catch(function (e) {
+    if (e.code === 'SESSION') return;
+    app.innerHTML = '<div class="center stack"><div class="brand">enchantée</div><h1>' + t('無法開啟') + '</h1><p class="muted">' + esc(e.message) + '</p><button class="btn" data-reload="1">' + t('重新整理') + '</button></div>';
+  });
+}
+
+/* ───── 登入 ───── */
+function viewLogin() {
+  var h = langBar() + '<div><h1>' + t('年度績效評核') + '</h1><p class="muted">' + t('請用您的公司 Email 登入，系統會寄一組驗證碼給您。') + '</p></div><div class="card">';
+  if (login.step === 'email') {
+    h += '<label for="lg_email" class="qlabel">Email</label><input type="email" id="lg_email" autocomplete="email" inputmode="email" value="' + esc(login.email) + '">' +
+      '<button class="btn" data-login="send">' + t('寄送驗證碼') + '</button>';
+  } else {
+    h += '<p>' + t('驗證碼已寄到 {0}，10 分鐘內有效。沒收到請查看垃圾信件匣。', '<b>' + esc(login.email) + '</b>') + '</p>' +
+      '<label for="lg_code" class="qlabel">' + t('6 位數驗證碼') + '</label><input type="text" id="lg_code" inputmode="numeric" autocomplete="one-time-code" maxlength="6">' +
+      '<button class="btn" data-login="verify">' + t('登入') + '</button><button class="btn ghost" data-login="back">' + t('換一個 Email') + '</button>';
+  }
+  return h + '</div>';
+}
+function doLogin(act, btn) {
+  if (act === 'back') { login.step = 'email'; return render(); }
+  if (busy) return;
+  var req;
+  if (act === 'send') {
+    login.email = document.getElementById('lg_email').value.trim();
+    if (!login.email) return toast(t('請輸入 Email'));
+    req = call('requestCode', { email: login.email }).then(function () { login.step = 'code'; render(); });
+  } else {
+    var code = document.getElementById('lg_code').value.trim();
+    if (!code) return toast(t('請輸入驗證碼'));
+    req = call('verifyCode', { email: login.email, code: code }).then(function (r) {
+      token = r.token; store('pr:session', token); login = { step: 'email', email: '' }; return load();
+    });
+  }
+  busy = true; btn.disabled = true; btn.textContent = t('處理中…');
+  req.then(function () { busy = false; }).catch(function (e) { busy = false; toast(e.message); render(); });
 }
 
 /* ───── 首頁 ───── */
@@ -146,25 +248,25 @@ var TASKS = [
 ];
 function viewHome() {
   var c = D.cfg, todo = 0, total = 0;
-  var cards = TASKS.filter(function (t) { return D.tasks[t[0]] !== 'na'; }).map(function (t) {
-    var st = D.tasks[t[0]];
+  var cards = TASKS.filter(function (x) { return D.tasks[x[0]] !== 'na'; }).map(function (x) {
+    var st = D.tasks[x[0]];
     if (st !== 'optional') { total++; if (st === 'todo') todo++; }
-    var desc = t[0] === 'thanks' ? '寫給至少 ' + c.minThanks + ' 位同事，具名送出' : t[2];
-    return '<button class="task" data-go="' + t[3] + '"><span class="grow"><b>' + t[1] + '</b><br><span class="muted">' + desc + '</span></span>' + pill(st) + '</button>';
+    var desc = x[0] === 'thanks' ? t('寫給至少 {0} 位同事，具名送出', c.minThanks) :
+      (x[0] === 'peer' && c.minPeers) ? t('為至少 {0} 位今年合作過的同事留下回饋，每位約 1 分鐘', c.minPeers) : t(x[2]);
+    return '<button class="task" data-go="' + x[3] + '"><span class="grow"><b>' + t(x[1]) + '</b><br><span class="muted">' + desc + '</span></span>' + pill(st) + '</button>';
   }).join('');
-  var h = '<div class="brand">enchantée</div>' +
-    '<div><h1>' + esc(D.me.name) + '，辛苦了</h1><p class="muted">' + esc(c.year) + ' 年度績效評核' + (c.deadline ? '　截止日 ' + esc(c.deadline) : '') + '</p></div>';
-  if (!c.open) h += '<div class="notice">本年度評核已截止，目前只能檢視，無法修改。</div>';
-  else if (total && !todo) h += '<div class="notice info">全部完成了，謝謝您的用心填寫。截止日前仍可回來修改。</div>';
-  else if (total) h += '<p class="muted">還有 <b>' + todo + '</b> 項待完成，可以分次填寫，未送出的內容會暫存在這支手機。</p>';
+  var h = langBar() + '<div><h1>' + t('{0}，辛苦了', esc(D.me.name)) + '</h1><p class="muted">' + t('{0} 年度績效評核', esc(c.year)) + (c.deadline ? '　' + t('截止日 {0}', esc(c.deadline)) : '') + '</p></div>';
+  if (!c.open) h += '<div class="notice">' + t('本年度評核已截止，目前只能檢視，無法修改。') + '</div>';
+  else if (total && !todo) h += '<div class="notice info">' + t('全部完成了，謝謝您的用心填寫。截止日前仍可回來修改。') + '</div>';
+  else if (total) h += '<p class="muted">' + t('還有 <b>{0}</b> 項待完成，可以分次填寫，未送出的內容會暫存在這支手機。', todo) + '</p>';
   h += '<div class="stack">' + cards + '</div>';
   if (D.received) {
-    h += '<div class="card"><h3>我收到的感謝卡</h3>' + (D.received.length ? D.received.map(function (r) {
-      return '<div><div class="quote">' + esc(r.text) + '</div><p class="muted small">' + esc(r.from) + '（' + esc(r.dept) + '）' + (r.tag ? '　' + esc(r.tag) : '') + '</p></div>';
-    }).join('') : '<p class="muted">目前還沒有收到感謝卡。</p>') + '</div>';
+    h += '<div class="card"><h3>' + t('我收到的感謝卡') + '</h3>' + (D.received.length ? D.received.map(function (r) {
+      return '<div><div class="quote">' + esc(r.text) + '</div><p class="muted small">' + esc(r.from) + '（' + esc(r.dept) + '）' + (r.tag ? '　' + esc(t(r.tag)) : '') + '</p></div>';
+    }).join('') : '<p class="muted">' + t('目前還沒有收到感謝卡。') + '</p>') + '</div>';
   }
   if (D.me.isCEO) h += '<button class="btn" data-go="dash">開啟執行長儀表板</button>';
-  return h;
+  return h + '<button class="back" data-logout="1" style="align-self:center">' + t('登出') + '</button>';
 }
 
 /* ───── 通用問卷 ───── */
@@ -180,15 +282,16 @@ function kpiParse(s) {
   return o;
 }
 function fieldHtml(f) {
-  var v = F.a[f.k], h = '<div class="q" data-q="' + f.k + '"><div><span class="qlabel">' + esc(f.label) + '</span>' + (f.req ? '<span class="req">＊</span>' : '') +
-    (f.desc ? '<br><span class="muted">' + esc(f.desc) + '</span>' : '') + '</div>';
+  var v = F.a[f.k], desc = L(f, 'desc'), sc = (lang === 'vi' && f.vscale) || f.scale;
+  var h = '<div class="q" data-q="' + f.k + '"><div><span class="qlabel">' + esc(L(f, 'label')) + '</span>' + (f.req ? '<span class="req">＊</span>' : '') +
+    (desc ? '<br><span class="muted">' + esc(desc) + '</span>' : '') + '</div>';
   if (f.type === 'score') {
     h += '<div class="scale">' + [1, 2, 3, 4, 5].map(function (n) {
-      return '<button type="button" data-k="' + f.k + '" data-v="' + n + '" class="' + (v === n ? 'on' : '') + '" aria-label="' + n + ' 分 ' + esc(f.scale[n - 1]) + '">' + n + '</button>';
-    }).join('') + '</div><div class="scalecap"><span>' + esc(f.scale[0]) + '</span><b data-cap="' + f.k + '">' + (v ? esc(f.scale[v - 1]) : '') + '</b><span>' + esc(f.scale[4]) + '</span></div>';
+      return '<button type="button" data-k="' + f.k + '" data-v="' + n + '" class="' + (v === n ? 'on' : '') + '" aria-label="' + n + ' ' + esc(sc[n - 1]) + '">' + n + '</button>';
+    }).join('') + '</div><div class="scalecap"><span>' + esc(sc[0]) + '</span><b data-cap="' + f.k + '">' + (v ? esc(sc[v - 1]) : '') + '</b><span>' + esc(sc[4]) + '</span></div>';
   } else if (f.type === 'choice') {
     h += '<div class="wrap">' + f.options.map(function (o) {
-      return '<button type="button" class="chip ' + (v === o ? 'on' : '') + '" data-k="' + f.k + '" data-c="' + esc(o) + '">' + esc(o) + '</button>';
+      return '<button type="button" class="chip ' + (v === o ? 'on' : '') + '" data-k="' + f.k + '" data-c="' + esc(o) + '">' + esc(t(o)) + '</button>';
     }).join('') + '</div>';
   } else if (f.type === 'kpi') {
     var kp = kpiParse(v), names = (byId(D.reports, F.target) || {}).kpis || [];
@@ -201,15 +304,15 @@ function fieldHtml(f) {
   return h + '</div>';
 }
 function viewForm() {
-  var h = '<button class="back" data-go="' + F.backTo + '">‹ 返回</button><div><h1>' + esc(F.title) + '</h1><p class="muted">' + F.intro + '</p></div>' + F.extra;
+  var h = '<button class="back" data-go="' + F.backTo + '">' + t('‹ 返回') + '</button><div><h1>' + esc(F.title) + '</h1><p class="muted">' + F.intro + '</p></div>' + F.extra;
   var group = null, open = false;
   F.fields.forEach(function (f) {
     var g = f.group || '';
-    if (g !== group) { if (open) h += '</div>'; h += '<div class="card">' + (g ? '<h3>' + esc(g) + '</h3>' : ''); open = true; group = g; }
+    if (g !== group) { if (open) h += '</div>'; h += '<div class="card">' + (g ? '<h3>' + esc(L(f, 'group')) + '</h3>' : ''); open = true; group = g; }
     h += fieldHtml(f);
   });
   if (open) h += '</div>';
-  if (D.cfg.open) h += '<div class="sticky"><button class="btn" data-submit="1">' + (F.submitted ? '更新並送出' : '送出') + '</button></div>';
+  if (D.cfg.open) h += '<div class="sticky"><button class="btn" data-submit="1">' + t(F.submitted ? '更新並送出' : '送出') + '</button></div>';
   return h;
 }
 function submitForm() {
@@ -220,27 +323,29 @@ function submitForm() {
     el.classList.toggle('miss', !!(f.req && empty));
     if (f.req && empty && !miss) miss = el;
   });
-  if (miss) { miss.scrollIntoView({ behavior: 'smooth', block: 'center' }); toast('還有必填題目尚未完成'); return; }
+  if (miss) { miss.scrollIntoView({ behavior: 'smooth', block: 'center' }); toast(t('還有必填題目尚未完成')); return; }
   var form = F.form, target = F.target, backTo = F.backTo;
   send({ form: form, target: target, answers: F.a }, function () { setDraft(form, target, null); go(backTo); });
 }
 function send(payload, after) {
   if (busy) return; busy = true;
-  var b = app.querySelector('[data-submit]'); if (b) { b.disabled = true; b.textContent = '送出中…'; }
+  var b = app.querySelector('[data-submit]'); if (b) { b.disabled = true; b.textContent = t('送出中…'); }
   call('save', payload).then(function () { return call('boot'); }).then(function (d) {
-    busy = false; D = d; toast('已送出'); after();
-  }).catch(function (e) { busy = false; toast(e.message); render(); });
+    busy = false; D = d; toast(t('已送出')); after();
+  }).catch(function (e) { busy = false; if (e.code !== 'SESSION') { toast(e.message); render(); } });
 }
 
 /* ───── 同儕回饋 ───── */
 function viewPeerList() {
-  var h = '<button class="back" data-go="home">‹ 返回</button><div><h1>同儕回饋</h1><p class="muted">只評今年實際合作過的同事。回饋內容只有執行長看得到，轉達時不會顯示您的姓名。</p></div>';
-  h += '<div class="card"><h3>我的回饋對象</h3>' + (D.peers.length ? D.peers.map(function (p) {
-    return '<div class="prow"><button class="who" data-peer="' + esc(p.id) + '"><b>' + esc(p.name) + '</b> <span class="muted">' + esc(p.dept) + (p.assigned ? '・指定' : '') + '</span></button>' +
+  var doneN = D.peers.filter(function (p) { return p.answers; }).length;
+  var h = '<button class="back" data-go="home">' + t('‹ 返回') + '</button><div><h1>' + t('同儕回饋') + '</h1><p class="muted">' + t('只評今年實際合作過的同事。回饋內容只有執行長看得到，轉達時不會顯示您的姓名。') + '</p></div>';
+  if (D.cfg.minPeers) h += '<div class="notice info">' + t('請至少為 {0} 位同事填寫，目前已完成 {1} 位。', D.cfg.minPeers, doneN) + '</div>';
+  h += '<div class="card"><h3>' + t('我的回饋對象') + '</h3>' + (D.peers.length ? D.peers.map(function (p) {
+    return '<div class="prow"><button class="who" data-peer="' + esc(p.id) + '"><b>' + esc(p.name) + '</b> <span class="muted">' + esc(p.dept) + (p.assigned ? t('・指定') : '') + '</span></button>' +
       pill(p.answers ? 'done' : (p.assigned ? 'todo' : 'optional')) + '</div>';
-  }).join('') : '<p class="muted">目前沒有指定的對象。</p>') + '</div>';
+  }).join('') : '<p class="muted">' + t('還沒有選擇同事，請從下方新增。') + '</p>') + '</div>';
   if (D.cfg.open && D.peerCandidates.length) {
-    h += '<div class="card"><h3>新增合作過的同事</h3><p class="muted">今年工作上有交集的同事，都歡迎留下回饋。</p><select id="peerAdd"><option value="">選擇同事…</option>' +
+    h += '<div class="card"><h3>' + t('新增合作過的同事') + '</h3><p class="muted">' + t('今年工作上有交集的同事，都歡迎留下回饋。') + '</p><select id="peerAdd"><option value="">' + t('選擇同事…') + '</option>' +
       groupOptions(D.peerCandidates) + '</select></div>';
   }
   return h;
@@ -248,35 +353,35 @@ function viewPeerList() {
 function groupOptions(list, selected) {
   var depts = {}; list.forEach(function (p) { (depts[p.dept] = depts[p.dept] || []).push(p); });
   return Object.keys(depts).map(function (d) {
-    return '<optgroup label="' + esc(d || '其他') + '">' + depts[d].map(function (p) {
+    return '<optgroup label="' + esc(d || t('其他')) + '">' + depts[d].map(function (p) {
       return '<option value="' + esc(p.id) + '"' + (p.id === selected ? ' selected' : '') + '>' + esc(p.name) + '</option>';
     }).join('') + '</optgroup>';
   }).join('');
 }
 function openPeer(id) {
-  var p = byId(D.peers, id) || byId(D.peerCandidates, id);
-  openForm('peer', id, '給 ' + p.name + ' 的回饋', esc(p.dept) + '　請依今年實際合作的經驗作答', 'peerList',
-    (byId(D.peers, id) && byId(D.peers, id).answers && !byId(D.peers, id).assigned && D.cfg.open) ? '<button class="btn ghost slim" data-delpeer="' + esc(id) + '">移除這份回饋</button>' : '');
-  view = { name: 'form' }; render(); window.scrollTo(0, 0);
+  var p = byId(D.peers, id) || byId(D.peerCandidates, id), mine = byId(D.peers, id);
+  openForm('peer', id, t('給 {0} 的回饋', p.name), esc(p.dept) + '　' + t('請依今年實際合作的經驗作答'), 'peerList',
+    (mine && mine.answers && !mine.assigned && D.cfg.open) ? '<button class="btn ghost slim" data-delpeer="' + esc(id) + '">' + t('移除這份回饋') + '</button>' : '');
+  view = { name: 'form', kind: 'peer', arg: id }; render(); window.scrollTo(0, 0);
 }
 
 /* ───── 感謝卡 ───── */
 function viewThanks() {
   if (!F) F = { cards: (D.thanks.length ? D.thanks : (getDraft('thanks', 'all') || [])).map(function (c) { return { to: c.to, tag: c.tag, text: c.text }; }) };
   while (F.cards.length < D.cfg.minThanks) F.cards.push({ to: '', tag: '', text: '' });
-  var h = '<button class="back" data-go="home">‹ 返回</button><div><h1>感謝卡</h1><p class="muted">今年誰幫過你、誰讓你覺得有他真好？請寫給至少 ' + D.cfg.minThanks + ' 位同事，不限部門。感謝卡會具名送給對方。</p></div>';
+  var h = '<button class="back" data-go="home">' + t('‹ 返回') + '</button><div><h1>' + t('感謝卡') + '</h1><p class="muted">' + t('今年誰幫過你、誰讓你覺得有他真好？請寫給至少 {0} 位同事，不限部門。感謝卡會具名送給對方。', D.cfg.minThanks) + '</p></div>';
   h += F.cards.map(function (c, i) {
-    return '<div class="card"><div class="row"><h3 class="grow">第 ' + (i + 1) + ' 張</h3>' + (F.cards.length > D.cfg.minThanks ? '<button class="btn ghost slim" data-delcard="' + i + '">移除</button>' : '') + '</div>' +
-      '<select id="tk_to' + i + '" data-card="' + i + '" data-f="to"><option value="">要感謝誰？</option>' + groupOptions(D.directory, c.to) + '</select>' +
-      '<div class="wrap">' + D.cfg.tags.map(function (t) { return '<button type="button" class="chip ' + (c.tag === t ? 'on' : '') + '" data-card="' + i + '" data-tag="' + esc(t) + '">' + esc(t) + '</button>'; }).join('') + '</div>' +
-      '<textarea id="tk_tx' + i + '" data-card="' + i + '" data-f="text" maxlength="300" placeholder="寫下具體的事，例如：謝謝你在中秋檔期幫我頂了三天的出貨">' + esc(c.text) + '</textarea></div>';
+    return '<div class="card"><div class="row"><h3 class="grow">' + t('第 {0} 張', i + 1) + '</h3>' + (F.cards.length > D.cfg.minThanks ? '<button class="btn ghost slim" data-delcard="' + i + '">' + t('移除') + '</button>' : '') + '</div>' +
+      '<select id="tk_to' + i + '" data-card="' + i + '" data-f="to"><option value="">' + t('要感謝誰？') + '</option>' + groupOptions(D.directory, c.to) + '</select>' +
+      '<div class="wrap">' + D.cfg.tags.map(function (g) { return '<button type="button" class="chip ' + (c.tag === g ? 'on' : '') + '" data-card="' + i + '" data-tag="' + esc(g) + '">' + esc(t(g)) + '</button>'; }).join('') + '</div>' +
+      '<textarea id="tk_tx' + i + '" data-card="' + i + '" data-f="text" maxlength="300" placeholder="' + esc(t('寫下具體的事，例如：謝謝你在中秋檔期幫我頂了三天的出貨')) + '">' + esc(c.text) + '</textarea></div>';
   }).join('');
-  if (D.cfg.open) h += '<button class="btn ghost" data-addcard="1">＋ 再寫一張</button><div class="sticky"><button class="btn" data-submit="thanks">送出感謝卡</button></div>';
+  if (D.cfg.open) h += '<button class="btn ghost" data-addcard="1">' + t('＋ 再寫一張') + '</button><div class="sticky"><button class="btn" data-submit="thanks">' + t('送出感謝卡') + '</button></div>';
   return h;
 }
 function submitThanks() {
   var cards = F.cards.filter(function (c) { return c.to || String(c.text).trim(); });
-  if (cards.length < D.cfg.minThanks) { toast('請至少寫給 ' + D.cfg.minThanks + ' 位同事'); return; }
+  if (cards.length < D.cfg.minThanks) { toast(t('請至少寫給 {0} 位同事', D.cfg.minThanks)); return; }
   send({ form: 'thanks', answers: { cards: cards } }, function () { setDraft('thanks', 'all', null); go('home'); });
 }
 
@@ -299,7 +404,7 @@ function openReport(id) {
   var r = byId(D.reports, id);
   var extra = '<details class="card"><summary><b>' + esc(r.name) + ' 的自評</b></summary>' + (r.self ? '<div class="stack">' + answersHtml('self', r.self) + '</div>' : '<p class="muted">這位同仁尚未送出自評，您仍可先評分，之後再回來調整。</p>') + '</details>';
   openForm('mgr', id, '評核 ' + r.name, esc(r.title || r.dept), 'mgrList', extra);
-  view = { name: 'form' }; render(); window.scrollTo(0, 0);
+  view = { name: 'form', kind: 'mgr', arg: id }; render(); window.scrollTo(0, 0);
 }
 
 /* ───── 執行長儀表板 ───── */
@@ -408,9 +513,11 @@ function viewPerson() {
 
 /* ───── 畫面切換與事件 ───── */
 function render() {
+  if (!D) { app.innerHTML = viewLogin(); return; }
   var v = view.name;
   if (v === 'self' && !F) openForm('self', D.me.id, '自評', '請誠實回顧今年的表現。主管與執行長會看到這份內容。', 'home');
   if (v === 'voice' && !F) openForm('voice', D.me.id, '心聲問卷', '這份問卷<b>只有執行長看得到</b>，您的主管看不到，也不會影響年終。請放心說真話。', 'home');
+  if (F && F.fields && (v === 'self' || v === 'voice')) { F.title = t(v === 'self' ? '自評' : '心聲問卷'); F.intro = t(v === 'self' ? '請誠實回顧今年的表現。主管與執行長會看到這份內容。' : '這份問卷<b>只有執行長看得到</b>，您的主管看不到，也不會影響年終。請放心說真話。'); }
   app.innerHTML = v === 'home' ? viewHome() : (v === 'self' || v === 'voice' || v === 'form') ? viewForm() :
     v === 'peerList' ? viewPeerList() : v === 'thanks' ? viewThanks() : v === 'mgrList' ? viewMgrList() :
     v === 'dash' ? viewDash() : v === 'person' ? viewPerson() : '';
@@ -418,48 +525,57 @@ function render() {
 function closest(el, attr) { return el.closest ? el.closest('[' + attr + ']') : null; }
 
 app.addEventListener('click', function (e) {
-  var t = e.target, el;
-  if ((el = closest(t, 'data-go'))) { if (el.dataset.go === 'dash') DB = null; return go(el.dataset.go); }
-  if ((el = closest(t, 'data-peer'))) return openPeer(el.dataset.peer);
-  if ((el = closest(t, 'data-report'))) return openReport(el.dataset.report);
-  if ((el = closest(t, 'data-person'))) return go('person', el.dataset.person);
-  if ((el = closest(t, 'data-tab'))) { dashTab = el.dataset.tab; return render(); }
-  if ((el = closest(t, 'data-delpeer'))) return send({ form: 'peer', target: el.dataset.delpeer, answers: null }, function () { go('peerList'); });
-  if ((el = closest(t, 'data-submit'))) return el.dataset.submit === 'thanks' ? submitThanks() : submitForm();
-  if (closest(t, 'data-addcard')) { F.cards.push({ to: '', tag: '', text: '' }); return render(); }
-  if ((el = closest(t, 'data-delcard'))) { F.cards.splice(Number(el.dataset.delcard), 1); setDraft('thanks', 'all', F.cards); return render(); }
-  if ((el = closest(t, 'data-tag'))) {
+  var tg = e.target, el;
+  if ((el = closest(tg, 'data-lang'))) {
+    lang = el.dataset.lang; store('pr:lang', lang);
+    if (view.name === 'form' && F) { var keep = F.a; view.kind === 'peer' ? openPeer(view.arg) : openReport(view.arg); F.a = keep; }
+    return render();
+  }
+  if ((el = closest(tg, 'data-login'))) return doLogin(el.dataset.login, el);
+  if (closest(tg, 'data-reload')) return load();
+  if (closest(tg, 'data-logout')) { call('logout').catch(function () {}); token = ''; store('pr:session', null); D = null; return render(); }
+  if ((el = closest(tg, 'data-go'))) { if (el.dataset.go === 'dash') DB = null; return go(el.dataset.go); }
+  if ((el = closest(tg, 'data-peer'))) return openPeer(el.dataset.peer);
+  if ((el = closest(tg, 'data-report'))) return openReport(el.dataset.report);
+  if ((el = closest(tg, 'data-person'))) return go('person', el.dataset.person);
+  if ((el = closest(tg, 'data-tab'))) { dashTab = el.dataset.tab; return render(); }
+  if ((el = closest(tg, 'data-delpeer'))) return send({ form: 'peer', target: el.dataset.delpeer, answers: null }, function () { go('peerList'); });
+  if ((el = closest(tg, 'data-submit'))) return el.dataset.submit === 'thanks' ? submitThanks() : submitForm();
+  if (closest(tg, 'data-addcard')) { F.cards.push({ to: '', tag: '', text: '' }); return render(); }
+  if ((el = closest(tg, 'data-delcard'))) { F.cards.splice(Number(el.dataset.delcard), 1); setDraft('thanks', 'all', F.cards); return render(); }
+  if ((el = closest(tg, 'data-tag'))) {
     var c = F.cards[Number(el.dataset.card)]; c.tag = c.tag === el.dataset.tag ? '' : el.dataset.tag;
     [].forEach.call(el.parentNode.children, function (b) { b.classList.toggle('on', b.dataset.tag === c.tag); });
     return setDraft('thanks', 'all', F.cards);
   }
   if (!F || !D.cfg.open) return;
-  if ((el = closest(t, 'data-v'))) {
+  if ((el = closest(tg, 'data-v'))) {
     var k = el.dataset.k, n = Number(el.dataset.v); F.a[k] = n;
     [].forEach.call(el.parentNode.children, function (b) { b.classList.toggle('on', b === el); });
     var f = F.fields.filter(function (x) { return x.k === k; })[0];
-    app.querySelector('[data-cap="' + k + '"]').textContent = f.scale[n - 1];
+    app.querySelector('[data-cap="' + k + '"]').textContent = ((lang === 'vi' && f.vscale) || f.scale)[n - 1];
     setDraft(F.form, F.target, F.a);
-  } else if ((el = closest(t, 'data-c'))) {
+  } else if ((el = closest(tg, 'data-c'))) {
     F.a[el.dataset.k] = el.dataset.c;
     [].forEach.call(el.parentNode.children, function (b) { b.classList.toggle('on', b === el); });
     setDraft(F.form, F.target, F.a);
   }
 });
 app.addEventListener('input', function (e) {
-  var t = e.target;
+  var tg = e.target;
   if (!F) return;
-  if (t.dataset.t) { F.a[t.dataset.t] = t.value; setDraft(F.form, F.target, F.a); }
-  else if (t.dataset.kpi !== undefined) {
+  if (tg.dataset.t) { F.a[tg.dataset.t] = tg.value; setDraft(F.form, F.target, F.a); }
+  else if (tg.dataset.kpi !== undefined) {
     F.a.kpi = [].map.call(app.querySelectorAll('[data-kpi]'), function (i) { return i.value.trim() ? i.dataset.kpi + '：' + i.value.trim().replace(/\n/g, ' ') : ''; }).filter(String).join('\n');
     setDraft(F.form, F.target, F.a);
-  } else if (t.dataset.card !== undefined && t.dataset.f) { F.cards[Number(t.dataset.card)][t.dataset.f] = t.value; setDraft('thanks', 'all', F.cards); }
+  } else if (tg.dataset.card !== undefined && tg.dataset.f) { F.cards[Number(tg.dataset.card)][tg.dataset.f] = tg.value; setDraft('thanks', 'all', F.cards); }
 });
 app.addEventListener('change', function (e) {
-  var t = e.target;
-  if (t.id === 'peerAdd' && t.value) return openPeer(t.value);
-  if (t.dataset.final !== undefined) {
-    call('setFinal', { id: t.dataset.final, grade: t.value }).then(function () { return call('dashboard'); })
+  var tg = e.target;
+  if (tg.dataset.card !== undefined && tg.dataset.f && F && F.cards) { F.cards[Number(tg.dataset.card)][tg.dataset.f] = tg.value; setDraft('thanks', 'all', F.cards); }
+  if (tg.id === 'peerAdd' && tg.value) return openPeer(tg.value);
+  if (tg.dataset.final !== undefined) {
+    call('setFinal', { id: tg.dataset.final, grade: tg.value }).then(function () { return call('dashboard'); })
       .then(function (d) { DB = d; render(); toast('已更新等第'); }).catch(function (err) { toast(err.message); render(); });
   }
 });
