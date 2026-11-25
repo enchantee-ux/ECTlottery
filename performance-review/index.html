@@ -685,8 +685,8 @@ function dashResult() {
     (DB.paySummary && DB.paySummary.bonusN ? '<div class="kv"><span>年終金額合計（' + DB.paySummary.bonusN + ' 人）</span><span>' + nf(DB.paySummary.bonus) + ' 元</span></div>' : '') +
     '<p class="muted small">折算月數＝等第月數 × 在職比例；年終金額＝月薪 × 折算月數。在職比例依名冊的到職日計算，月薪取自「職等薪資」工作表。調整等第後金額會跟著變。</p></div>';
   var lite = DB.people.filter(function (p) { return !p.rated; });
-  h += '<div class="card"><h3>個人結果（依總分排序）</h3><p class="muted small">下拉選單可調整最終等第，未調整者採系統建議。</p>' + rated.map(function (p) {
-    return '<div class="prow"><span class="dot ' + p.light + '" title="關懷燈號"></span><div style="flex:1;min-width:0">' + who(p) + '<p class="small muted num" style="font-weight:400">在職 ' + Math.round(p.ratio * 100) + '%' + (p.proMonths !== null ? '・折算 ' + p.proMonths + ' 個月' : '') + (p.pay && p.pay.bonus !== null ? '・年終 ' + nf(p.pay.bonus) : '') + '</p>' + (p.mgr && p.mgr.summary ? '<p class="small muted">' + esc(p.mgr.summary) + '</p>' : '') + '</div>' +
+  h += '<div class="card"><h3>個人結果（依總分排序）</h3><p class="muted small">下拉選單可調整最終等第，未調整者採系統建議。感謝卡不計分，分數接近時可作為參考。</p>' + rated.map(function (p) {
+    return '<div class="prow"><span class="dot ' + p.light + '" title="關懷燈號"></span><div style="flex:1;min-width:0">' + who(p) + '<p class="small muted num" style="font-weight:400">在職 ' + Math.round(p.ratio * 100) + '%' + (p.proMonths !== null ? '・折算 ' + p.proMonths + ' 個月' : '') + (p.pay && p.pay.bonus !== null ? '・年終 ' + nf(p.pay.bonus) : '') + '</p>' + '<p class="small muted num" style="font-weight:400">感謝卡 ' + p.thanksIn.length + ' 張' + (p.thanksIn.length ? '，來自 ' + thanksDepts(p) + ' 個部門' : '') + '</p>' + (p.mgr && p.mgr.summary ? '<p class="small" style="color:var(--ink)">主管總評：' + esc(p.mgr.summary) + '</p>' : '') + '</div>' +
       '<span class="num">' + fmt(p.score.total) + '</span>' +
       '<select data-final="' + esc(p.id) + '" aria-label="' + esc(p.name) + ' 最終等第">' + ['', 'S', 'A', 'B', 'C'].map(function (g) {
         var sel = (p.calibrated ? p.final : '') === g;
@@ -709,12 +709,17 @@ function dashCare() {
   var green = DB.people.filter(function (p) { return p.light === 'green'; }).length;
   return h + '<p class="muted small">其餘 ' + green + ' 位同仁狀況穩定。燈號依心聲問卷、主管觀察、自評落差與感謝卡綜合判斷，是面談的線索，不是結論。</p>';
 }
+function thanksDepts(p) { var d = {}; p.thanksIn.forEach(function (t) { d[t.dept] = 1; }); return Object.keys(d).length; }
 function dashThanks() {
   var list = DB.people.slice().sort(function (a, b) { return b.thanksIn.length - a.thanksIn.length; });
   var top = list.filter(function (p) { return p.thanksIn.length; }).slice(0, 10), zero = list.filter(function (p) { return !p.thanksIn.length; });
-  return '<div class="card"><h3>最常被感謝的同仁</h3>' + (top.length ? top.map(function (p) {
-    var depts = {}; p.thanksIn.forEach(function (t) { depts[t.dept] = 1; });
-    return '<div class="prow">' + who(p) + '<span class="small muted">來自 ' + Object.keys(depts).length + ' 個部門</span><span class="num">' + p.thanksIn.length + ' 張</span></div>';
+  var broad = list.filter(function (p) { return p.thanksIn.length; }).sort(function (a, b) { return thanksDepts(b) - thanksDepts(a) || b.thanksIn.length - a.thanksIn.length; }).slice(0, 5);
+  return '<p class="muted small">感謝卡不計入評核分數。這裡的名單可以作為春酒頒獎的參考，例如「最佳夥伴獎」；校準等第時，分數接近的人也可以參考誰被更多部門感謝。</p>' +
+    '<div class="card"><h3>被最多部門感謝</h3><p class="muted small">跨部門的肯定比同部門互寫更難得。</p>' + (broad.length ? broad.map(function (p) {
+    return '<div class="prow">' + who(p) + '<span class="small muted">' + p.thanksIn.length + ' 張</span><span class="num">' + thanksDepts(p) + ' 個部門</span></div>';
+  }).join('') : '<p class="muted">還沒有人送出感謝卡。</p>') + '</div>' +
+    '<div class="card"><h3>最常被感謝的同仁</h3>' + (top.length ? top.map(function (p) {
+    return '<div class="prow">' + who(p) + '<span class="small muted">來自 ' + thanksDepts(p) + ' 個部門</span><span class="num">' + p.thanksIn.length + ' 張</span></div>';
   }).join('') : '<p class="muted">還沒有人送出感謝卡。</p>') + '</div>' +
     '<div class="card"><h3>尚未收到感謝卡（' + zero.length + ' 人）</h3>' + (zero.length ? '<p class="muted small">可能是工作不容易被看見，或與團隊互動較少，值得留意。</p>' + zero.map(function (p) { return '<div class="prow">' + who(p) + '</div>'; }).join('') : '<p class="muted">每個人都收到了。</p>') + '</div>';
 }
