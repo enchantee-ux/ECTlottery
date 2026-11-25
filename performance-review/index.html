@@ -714,7 +714,7 @@ function dashThanks() {
   var list = DB.people.slice().sort(function (a, b) { return b.thanksIn.length - a.thanksIn.length; });
   var top = list.filter(function (p) { return p.thanksIn.length; }).slice(0, 10), zero = list.filter(function (p) { return !p.thanksIn.length; });
   var broad = list.filter(function (p) { return p.thanksIn.length; }).sort(function (a, b) { return thanksDepts(b) - thanksDepts(a) || b.thanksIn.length - a.thanksIn.length; }).slice(0, 5);
-  return '<p class="muted small">感謝卡不計入評核分數。這裡的名單可以作為春酒頒獎的參考，例如「最佳夥伴獎」；校準等第時，分數接近的人也可以參考誰被更多部門感謝。</p>' +
+  return '<p class="muted small">感謝卡不計入評核分數。這裡的名單可以作為春酒頒獎的參考，例如「最佳夥伴獎」；確認等第時，分數接近的人也可以參考誰被更多部門感謝。</p>' +
     '<div class="card"><h3>被最多部門感謝</h3><p class="muted small">跨部門的肯定比同部門互寫更難得。</p>' + (broad.length ? broad.map(function (p) {
     return '<div class="prow">' + who(p) + '<span class="small muted">' + p.thanksIn.length + ' 張</span><span class="num">' + thanksDepts(p) + ' 個部門</span></div>';
   }).join('') : '<p class="muted">還沒有人送出感謝卡。</p>') + '</div>' +
