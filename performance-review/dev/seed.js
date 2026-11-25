@@ -24,6 +24,14 @@ function seed({ fill = true } = {}) {
     if (r[0] === '截止日') r[1] = '2026-12-11';
     if (r[0] === '月數_S') r[1] = 3; if (r[0] === '月數_A') r[1] = 2; if (r[0] === '月數_B') r[1] = 1.5; if (r[0] === '月數_C') r[1] = 1;
   });
+  // 職等與薪資（僅執行長儀表板使用）
+  be.sheets['薪資級距'].data.push(['營運', '1 等', 29500, 30500, 31500, '', ''], ['營運', '2 等', 32500, 34000, 35500, '', ''], ['營運', '3 等', 37000, 39000, 41000, '', ''], ['營運', '5 等', '', '', '', 40000, 52000]);
+  roster.data.slice(1).forEach((r, i) => {
+    if (r[6] === '執行長') return;
+    const mgr = r[3].includes('主管');
+    const g = mgr ? '5 等' : ['1 等', '2 等', '3 等'][i % 3], step = mgr ? '' : (i % 3 + 1) + ' 級';
+    be.sheets['職等薪資'].data.push([r[0], r[1], g, step, '營運', mgr ? 45000 : 30000 + i * 500, r[0] === 'E003' ? '2024-01-01' : '', '']);
+  });
   be.expireCache();
   const call = (action, payload) => JSON.parse(be.api.api(action, JSON.stringify(payload)));
   const lastCode = () => be.outbox[be.outbox.length - 1].subject.match(/\d{6}/)[0];

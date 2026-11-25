@@ -8,7 +8,8 @@ const SHEETS = {
   settings: '設定', roster: '名冊',
   self: '自評', mgr: '主管評', peer: '同儕評', thanks: '感謝卡', voice: '心聲',
   calib: '校準', result: '結果',
-  up: '主管回饋', upDone: '主管回饋已填'
+  up: '主管回饋', upDone: '主管回饋已填',
+  pay: '職等薪資', band: '薪資級距'
 };
 
 const ROSTER_HEADERS = ['編號', '姓名', '部門', '職稱', '直屬主管', '到職日', '角色', 'Email', '語言', '參加評等', '同儕評核人'];
@@ -202,7 +203,10 @@ function formHeaders_(form) {
 const THANKS_HEADERS = KEY_HEADERS.concat(['標籤', '內容']);
 const CALIB_HEADERS = ['年度', '編號', '姓名', '最終等第', '備註', '時間'];
 const RESULT_HEADERS = ['年度', '編號', '姓名', '部門', '主管評分', '同儕評分', '同儕人數', '自評分', '總分',
-  '建議等第', '最終等第', '年終月數', '在職比例', '折算月數', '關懷燈號', '關懷原因'];
+  '建議等第', '最終等第', '年終月數', '在職比例', '折算月數', '年終金額', '晉級建議', '建議月薪', '關懷燈號', '關懷原因'];
+// 職等與薪資只有執行長的儀表板與匯出會讀取，同仁與主管的畫面完全不會載入這兩張表
+const PAY_HEADERS = ['編號', '姓名', '職等', '職級', '薪資表', '月薪', '現級起算日', '備註'];
+const BAND_HEADERS = ['薪資表', '職等', '1 級', '2 級', '3 級', '下限', '上限'];
 
 /* ───────────── 試算表選單與初始化 ───────────── */
 
@@ -230,6 +234,8 @@ function setup() {
   ensureSheet_(SHEETS.thanks, THANKS_HEADERS);
   ensureSheet_(SHEETS.up, UP_HEADERS);
   ensureSheet_(SHEETS.upDone, UP_DONE_HEADERS);
+  ensureSheet_(SHEETS.pay, PAY_HEADERS);
+  ensureSheet_(SHEETS.band, BAND_HEADERS);
   ensureSheet_(SHEETS.calib, CALIB_HEADERS);
   ensureSheet_(SHEETS.result, RESULT_HEADERS);
 }
@@ -239,12 +245,14 @@ function writeResults() {
   ALL_TABLES.forEach(touch_);
   const ctx = ctx_();
   const res = computeResults_(ctx);
+  applyPay_(ctx, res);
   const sh = ss_().getSheetByName(SHEETS.result);
   const keep = readTable_(SHEETS.result).filter(r => String(r['年度']) !== ctx.year)
     .map(r => RESULT_HEADERS.map(h => r[h]));
   const rows = res.people.filter(p => p.rated).map(p => [ctx.year, p.id, p.name, p.dept,
     nz_(p.score.mgr), nz_(p.score.peer), p.score.peerN, nz_(p.score.self), nz_(p.score.total),
     p.suggested || '', p.final || '', p.months === null ? '' : p.months, p.ratio, p.proMonths === null ? '' : p.proMonths,
+    p.pay && p.pay.bonus !== null ? p.pay.bonus : '', p.raise ? p.raise.text : '', p.raise && p.raise.newSalary ? p.raise.newSalary : '',
     { red: '紅', yellow: '黃', green: '綠' }[p.light], p.flags.map(f => f.text).join('、')]);
   sh.clearContents();
   const all = [RESULT_HEADERS].concat(keep).concat(rows.map(r => r.map(safe_)));
@@ -385,7 +393,7 @@ function ensureSheet_(name, headers) {
  */
 const MEMO_ = {};
 const CACHE_PREFIX = 'T2_';
-const MANUAL_SHEETS = [SHEETS.settings, SHEETS.roster];
+const MANUAL_SHEETS = [SHEETS.settings, SHEETS.roster, SHEETS.pay, SHEETS.band];
 const ALL_TABLES = [SHEETS.settings, SHEETS.roster, SHEETS.self, SHEETS.mgr, SHEETS.peer, SHEETS.thanks, SHEETS.voice, SHEETS.calib, SHEETS.up, SHEETS.upDone];
 
 function clearMemo_() { Object.keys(MEMO_).forEach(k => { delete MEMO_[k]; }); }
@@ -1025,6 +1033,7 @@ function dashboard_(p) {
   const me = auth_(ctx, p.token);
   if (!me.isCEO) throw new Error('僅執行長可以檢視儀表板');
   const res = computeResults_(ctx);
+  applyPay_(ctx, res);
   const s = ctx.settings;
 
   const depts = {};
@@ -1044,9 +1053,59 @@ function dashboard_(p) {
     cfg: { year: ctx.year, open: yes_(s['開放填寫']), deadline: dateText_(s['截止日']) },
     forms: clientForms_(), dims: DIMENSIONS.map(d => ({ key: d.key, name: d.name })),
     assignPending: assignPending_(ctx).map(m => m.name),
-    people: res.people, dist: res.dist, caps: res.caps, ratedCount: res.ratedCount, mood: mood, upward: upward_(ctx),
+    people: res.people, dist: res.dist, caps: res.caps, ratedCount: res.ratedCount, mood: mood, upward: upward_(ctx), paySummary: res.paySummary,
     months: { S: num_(s['月數_S'], null), A: num_(s['月數_A'], null), B: num_(s['月數_B'], null), C: num_(s['月數_C'], null) }
   };
+}
+
+/* ───────────── 職等、薪資、年終金額與晉級建議（僅執行長） ───────────── */
+
+function digit_(v) { const m = String(v === undefined || v === null ? '' : v).match(/\d+/); return m ? Number(m[0]) : null; }
+
+function applyPay_(ctx, res) {
+  const bands = {};
+  readTable_(SHEETS.band).forEach(r => {
+    const t = String(r['薪資表'] || '').trim(), g = digit_(r['職等']);
+    if (!t || !g) return;
+    bands[t + '|' + g] = { steps: [num_(r['1 級'], null), num_(r['2 級'], null), num_(r['3 級'], null)], lo: num_(r['下限'], null), hi: num_(r['上限'], null) };
+  });
+  const pay = {};
+  readTable_(SHEETS.pay).forEach(r => { pay[String(r['編號']).trim()] = r; });
+  const sum = { payroll: 0, bonus: 0, bonusN: 0, raise: 0, raiseN: 0, withPay: 0 };
+
+  res.people.forEach(p => {
+    const r = pay[p.id];
+    p.pay = null; p.raise = null;
+    if (!r) return;
+    const grade = digit_(r['職等']), step = digit_(r['職級']), table = String(r['薪資表'] || '').trim();
+    const salary = num_(r['月薪'], null);
+    const band = bands[table + '|' + grade] || null;
+    const since = toDate_(r['現級起算日']);
+    p.pay = { grade: grade, step: step, table: table, salary: salary, note: String(r['備註'] || ''),
+      bonus: (salary !== null && p.proMonths !== null) ? Math.round(salary * p.proMonths) : null,
+      lo: band ? band.lo : null, hi: band ? band.hi : null };
+    if (salary !== null) { sum.payroll += salary; sum.withPay++; }
+    if (p.pay.bonus !== null) { sum.bonus += p.pay.bonus; sum.bonusN++; }
+    if (!grade || !p.rated) return;
+
+    const stepUp = () => {
+      if (step >= 3) return { action: 'top', text: '已在 ' + grade + ' 等最高級，請評估是否升 ' + (grade + 1) + ' 等' };
+      const target = band && band.steps[step] !== null ? band.steps[step] : null;   // steps[step] 是下一級的金額
+      if (target === null || salary === null) return { action: 'step', text: '建議晉 ' + (step + 1) + ' 級（缺少級距或月薪資料，無法試算）', newStep: step + 1 };
+      const next = Math.max(salary, target);
+      return { action: 'step', text: '建議晉 ' + (step + 1) + ' 級', newStep: step + 1, newSalary: next, delta: next - salary };
+    };
+    if (grade >= 4) p.raise = { action: 'range', text: grade + ' 等以上，在薪資範圍內由您核定' };
+    else if (!step) p.raise = { action: 'hold', text: '未設定職級' };
+    else if (!p.final) p.raise = { action: 'hold', text: '評核尚未完成' };
+    else if (p.final === 'S' || p.final === 'A') p.raise = stepUp();
+    else if (p.final === 'C') p.raise = { action: 'hold', text: '評 C，不晉級' };
+    else if (since && monthsBetween_(since, ctx.base) >= 24) p.raise = stepUp();
+    else p.raise = { action: 'hold', text: '評 B，同一級未滿 2 年' };
+    if (p.raise.delta) { sum.raise += p.raise.delta; sum.raiseN++; }
+  });
+  res.paySummary = Object.assign(sum, { pct: sum.payroll ? Math.round(sum.raise / sum.payroll * 1000) / 10 : null,
+    hasData: sum.withPay > 0 });
 }
 
 function upward_(ctx) {

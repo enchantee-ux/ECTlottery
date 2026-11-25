@@ -111,6 +111,27 @@ function logic() {
     assert.deepStrictEqual(s2.call('dashboard', { token: s2.tokens.E000 }).data.assignPending.length, 5);
     s2.assignAll();
     assert.strictEqual(s2.call('boot', { token: s2.tokens.E002 }).data.tasks.peer, 'todo'); assert.strictEqual(s2.call('dashboard', { token: s2.tokens.E000 }).data.assignPending.length, 0); }
+  // 職等薪資：年終金額與晉級建議，只有執行長拿得到
+  { const dd = call('dashboard', { token: tokens.E000 }).data; const P = id => dd.people.find(p => p.id === id);
+    const rated2 = dd.people.filter(p => p.rated && p.pay);
+    rated2.forEach(p => { if (p.proMonths !== null) assert.strictEqual(p.pay.bonus, Math.round(p.pay.salary * p.proMonths), '年終金額＝月薪×折算月數'); });
+    assert(dd.paySummary.hasData && dd.paySummary.bonus === rated2.reduce((a, p) => a + (p.pay.bonus || 0), 0));
+    const steps = { 1: [29500, 30500, 31500], 2: [32500, 34000, 35500], 3: [37000, 39000, 41000] };
+    let seen = {};
+    rated2.forEach(p => { const r = p.raise, g = p.pay.grade, st = p.pay.step; assert(r, p.id);
+      if (g >= 4) { assert.strictEqual(r.action, 'range'); seen.range = 1; return; }
+      const up = p.final === 'S' || p.final === 'A' || (p.final === 'B' && p.id === 'E003');
+      if (!p.final) { assert.strictEqual(r.action, 'hold'); return; }
+      if (up && st === 3) { assert.strictEqual(r.action, 'top'); seen.top = 1; }
+      else if (up) { assert.strictEqual(r.action, 'step'); assert.strictEqual(r.newStep, st + 1);
+        assert.strictEqual(r.newSalary, Math.max(p.pay.salary, steps[g][st])); assert.strictEqual(r.delta, r.newSalary - p.pay.salary); seen.step = 1; }
+      else { assert.strictEqual(r.action, 'hold'); seen.hold = 1; } });
+    assert(seen.step && seen.hold && seen.range, '涵蓋晉級、不晉級、主管三種情況：' + JSON.stringify(seen));
+    assert.strictEqual(dd.paySummary.raise, rated2.reduce((a, p) => a + ((p.raise && p.raise.delta) || 0), 0));
+    assert.strictEqual(P('E016').pay.bonus, null, '不參加評等者沒有年終金額試算');
+    for (const id of ['E001', 'E002', 'E010', 'E016']) { const b = JSON.stringify(call('boot', { token: tokens[id] }).data);
+      assert(!/salary|bonus|paySummary|newSalary|月薪/.test(b), id + ' 的畫面資料不含薪資'); }
+    assert(!call('dashboard', { token: tokens.E001 }).ok, '主管拿不到儀表板'); }
   // 給主管的回饋：匿名
   const upSheet = be.sheets['主管回饋'], doneSheet = be.sheets['主管回饋已填'];
   assert(!upSheet.data[0].some(h => /填寫人|時間/.test(h)), '內容表沒有填寫人與時間欄');
@@ -286,7 +307,7 @@ async function ui(outDir) {
   await p2.reload();
   await p2.click('[data-go="home"]'); await p2.waitForSelector('[data-go="dash"]'); await p2.click('[data-go="dash"]');
   await p2.waitForSelector('.tabs');
-  const tabs = ['progress', 'result', 'care', 'thanks', 'mood', 'up'];
+  const tabs = ['progress', 'result', 'care', 'thanks', 'mood', 'up', 'raise'];
   for (let i = 0; i < tabs.length; i++) {
     await p2.click('[data-tab="' + tabs[i] + '"]');
     if (outDir) await p2.screenshot({ path: path.join(outDir, '1' + i + '-dash-' + tabs[i] + '.png'), fullPage: true });
