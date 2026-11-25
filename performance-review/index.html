@@ -260,6 +260,14 @@ var VI = {
   '這一項還沒開放': 'Mục này chưa mở',
   '每個人要回饋的同事是由主管指定的。目前還有 {0} 位主管沒有指定完，要等所有主管都完成，名單才會確定。': 'Đồng nghiệp mà mỗi người cần nhận xét là do quản lý chỉ định. Hiện còn {0} quản lý chưa chỉ định xong; phải đợi tất cả hoàn thành thì danh sách mới được xác định.',
   '你可以先完成其他項目。開放後回到首頁，這一項會變成「待填寫」。': 'Bạn có thể hoàn thành các mục khác trước. Khi mở, quay lại trang chính và mục này sẽ chuyển thành “Chưa làm”.',
+  '請讓分數反映出差異。同一個團隊裡，每個人、每一題的表現不會都一樣好；全部給 4 分或 5 分，等於沒有告訴公司誰做得特別好。': 'Hãy để điểm số phản ánh sự khác biệt. Trong cùng một nhóm, không phải ai và câu nào cũng tốt như nhau; nếu tất cả đều 4 hoặc 5 điểm thì công ty không biết ai làm đặc biệt tốt.',
+  '我的評分分布': 'Phân bố điểm tôi đã chấm', '平均 {0}': 'Trung bình {0}', '整體平均': 'Trung bình chung', '最高與最低相差': 'Chênh lệch cao nhất và thấp nhất', '給 4 分以上的題數比例': 'Tỷ lệ câu chấm từ 4 điểm trở lên',
+  '請再檢視一次分數': 'Vui lòng xem lại điểm số', '整體平均達到 {0} 分以上': 'Trung bình chung đạt từ {0} điểm trở lên', '最高與最低相差不到 {0} 分': 'Chênh lệch cao nhất và thấp nhất chưa đến {0} điểm',
+  '這代表你的評分可能偏高或太接近，看不出誰表現得特別好、誰需要加強。': 'Điều này cho thấy điểm bạn chấm có thể hơi cao hoặc quá gần nhau, khó thấy ai làm đặc biệt tốt và ai cần cải thiện.',
+  '請擇一處理：回到上面調整個別同仁的分數；或在下面說明為什麼這個團隊的分數確實接近。說明只有執行長看得到。': 'Hãy chọn một cách: quay lại điều chỉnh điểm của từng nhân viên ở trên; hoặc giải thích bên dưới vì sao điểm của nhóm này thực sự gần nhau. Chỉ Giám đốc điều hành xem được phần giải thích.',
+  '例如：今年團隊成員都是資深同仁，表現確實相近，具體事例是…': 'Ví dụ: năm nay các thành viên đều là nhân viên lâu năm, biểu hiện thực sự tương đương, cụ thể là…',
+  '更新說明': 'Cập nhật giải thích', '送出說明': 'Gửi giải thích', '請至少寫 10 個字': 'Vui lòng viết ít nhất 10 ký tự',
+  '已收到你的說明，這一項算完成。之後仍可調整分數或更新說明。': 'Đã nhận giải thích của bạn, mục này được tính là hoàn thành. Sau đó bạn vẫn có thể điều chỉnh điểm hoặc cập nhật giải thích.',
   '是': 'Có', '否': 'Không', '低': 'Thấp', '中': 'Trung bình', '高': 'Cao',
   '最佳支援': 'Hỗ trợ tốt nhất', '專業可靠': 'Chuyên nghiệp, đáng tin', '溫暖貼心': 'Ấm áp, chu đáo', '創意點子': 'Ý tưởng sáng tạo', '使命必達': 'Luôn hoàn thành nhiệm vụ'
 };
@@ -621,10 +629,27 @@ function submitAssign() {
 
 /* ───── 主管評核 ───── */
 function viewMgrList() {
-  return '<button class="back" data-go="home">' + t('‹ 返回') + '</button><div><h1>' + t('主管評核') + '</h1><p class="muted">' + t('評分前可以先看同仁的自評。') + '</p></div>' + visBox('mgr') +
+  var sp = D.spread, h = '<button class="back" data-go="home">' + t('‹ 返回') + '</button><div><h1>' + t('主管評核') + '</h1><p class="muted">' + t('評分前可以先看同仁的自評。') + '</p></div>' + visBox('mgr') +
+    '<div class="notice info">' + t('請讓分數反映出差異。同一個團隊裡，每個人、每一題的表現不會都一樣好；全部給 4 分或 5 分，等於沒有告訴公司誰做得特別好。') + '</div>' +
     '<div class="card">' + D.reports.map(function (r) {
       return '<div class="prow"><button class="who" data-report="' + esc(r.id) + '"><b>' + esc(r.name) + '</b> <span class="muted">' + esc(r.title || r.dept) + (r.self ? '' : t('・尚未自評')) + '</span></button>' + pill(r.answers ? 'done' : 'todo') + '</div>';
     }).join('') + '</div>';
+  if (sp && sp.rated) {
+    h += '<div class="card"><h3>' + t('我的評分分布') + '</h3>' + sp.rows.filter(function (x) { return x.avg !== null; }).sort(function (a, b) { return b.avg - a.avg; }).map(function (x) {
+      return '<div class="kv"><span>' + esc(x.name) + '</span><span>' + t('平均 {0}', x.avg.toFixed(1)) + '</span></div>'; }).join('') +
+      '<div class="kv" style="border-top:1px solid var(--line);padding-top:8px"><span>' + t('整體平均') + '</span><span>' + sp.teamAvg.toFixed(2) + '</span></div>' +
+      '<div class="kv"><span>' + t('最高與最低相差') + '</span><span>' + sp.range.toFixed(1) + '</span></div>' +
+      '<div class="kv"><span>' + t('給 4 分以上的題數比例') + '</span><span>' + sp.high + '%</span></div></div>';
+  }
+  if (sp && sp.concentrated) {
+    var why = (sp.tooHigh ? t('整體平均達到 {0} 分以上', sp.maxAvg) : '') + (sp.tooHigh && sp.tooFlat ? '；' : '') + (sp.tooFlat ? t('最高與最低相差不到 {0} 分', sp.minRange) : '');
+    h += '<div class="card"><h3>' + t('請再檢視一次分數') + '</h3><div class="notice"><b>' + why + '</b><br>' + t('這代表你的評分可能偏高或太接近，看不出誰表現得特別好、誰需要加強。') + '</div>' +
+      '<p>' + t('請擇一處理：回到上面調整個別同仁的分數；或在下面說明為什麼這個團隊的分數確實接近。說明只有執行長看得到。') + '</p>' +
+      '<textarea id="mgrnote" maxlength="600" placeholder="' + esc(t('例如：今年團隊成員都是資深同仁，表現確實相近，具體事例是…')) + '">' + esc(sp.note) + '</textarea>' +
+      (D.cfg.open ? '<button class="btn" data-mgrnote="1">' + t(sp.note ? '更新說明' : '送出說明') + '</button>' : '') +
+      (sp.note ? '<p class="small muted">' + t('已收到你的說明，這一項算完成。之後仍可調整分數或更新說明。') + '</p>' : '') + '</div>';
+  }
+  return h;
 }
 function answersHtml(form, a, forms) {
   var fields = (forms || D.forms)[form].fields, scores = fields.filter(function (f) { return f.type === 'score'; });
@@ -685,6 +710,11 @@ function dashResult() {
     (DB.paySummary && DB.paySummary.bonusN ? '<div class="kv"><span>年終金額合計（' + DB.paySummary.bonusN + ' 人）</span><span>' + nf(DB.paySummary.bonus) + ' 元</span></div>' : '') +
     '<p class="muted small">折算月數＝等第月數 × 在職比例；年終金額＝月薪 × 折算月數。在職比例依名冊的到職日計算，月薪取自「職等薪資」工作表。調整等第後金額會跟著變。</p></div>';
   var lite = DB.people.filter(function (p) { return !p.rated; });
+  if (DB.mgrSpread && DB.mgrSpread.some(function (m) { return m.rated; })) {
+    h += '<div class="card"><h3>各主管的給分習慣</h3><p class="muted small">平均越高代表給分越鬆，差距越小代表越看不出高低。確認等第時可以對照。標示「偏高」「太接近」的主管，系統已請他重新檢視或說明。</p><div class="scroll"><table><thead><tr><th>主管</th><th>已評</th><th>平均</th><th>高低差</th><th>4 分以上</th><th>狀況</th></tr></thead><tbody>' +
+      DB.mgrSpread.map(function (m) { return '<tr><td>' + esc(m.name) + '</td><td>' + m.rated + '/' + m.n + '</td><td class="' + (m.tooHigh ? 'mid' : '') + '">' + (m.teamAvg === null ? '—' : m.teamAvg.toFixed(2)) + '</td><td class="' + (m.tooFlat ? 'mid' : '') + '">' + (m.range === null ? '—' : m.range.toFixed(1)) + '</td><td>' + (m.high === null ? '—' : m.high + '%') + '</td><td>' + (m.tooHigh ? '偏高' : '') + (m.tooHigh && m.tooFlat ? '、' : '') + (m.tooFlat ? '太接近' : '') + (!m.concentrated && m.rated === m.n && m.n ? '正常' : '') + '</td></tr>'; }).join('') + '</tbody></table></div>' +
+      DB.mgrSpread.filter(function (m) { return m.note; }).map(function (m) { return '<div><p class="small muted">' + esc(m.name) + ' 的說明</p><div class="quote">' + esc(m.note) + '</div></div>'; }).join('') + '</div>';
+  }
   h += '<div class="card"><h3>個人結果（依總分排序）</h3><p class="muted small">下拉選單可調整最終等第，未調整者採系統建議。感謝卡不計分，分數接近時可作為參考。</p>' + rated.map(function (p) {
     return '<div class="prow"><span class="dot ' + p.light + '" title="關懷燈號"></span><div style="flex:1;min-width:0">' + who(p) + '<p class="small muted num" style="font-weight:400">在職 ' + Math.round(p.ratio * 100) + '%' + (p.proMonths !== null ? '・折算 ' + p.proMonths + ' 個月' : '') + (p.pay && p.pay.bonus !== null ? '・年終 ' + nf(p.pay.bonus) : '') + '</p>' + '<p class="small muted num" style="font-weight:400">感謝卡 ' + p.thanksIn.length + ' 張' + (p.thanksIn.length ? '，來自 ' + thanksDepts(p) + ' 個部門' : '') + '</p>' + (p.mgr && p.mgr.summary ? '<p class="small" style="color:var(--ink)">主管總評：' + esc(p.mgr.summary) + '</p>' : '') + '</div>' +
       '<span class="num">' + fmt(p.score.total) + '</span>' +
@@ -835,6 +865,7 @@ app.addEventListener('click', function (e) {
   if ((el = closest(tg, 'data-pick'))) { if (D.cfg.open) pickRater(el); return; }
   if ((el = closest(tg, 'data-person'))) return go('person', el.dataset.person);
   if ((el = closest(tg, 'data-tab'))) { dashTab = el.dataset.tab; return render(); }
+  if (closest(tg, 'data-mgrnote')) { var nt = document.getElementById('mgrnote').value.trim(); if (nt.length < 10) return toast(t('請至少寫 10 個字')); return send({ form: 'mgrnote', answers: { text: nt } }, function () { go('mgrList'); }); }
   if (closest(tg, 'data-upskip')) return send({ form: 'up', answers: { skip: true } }, function () { go('home'); });
   if ((el = closest(tg, 'data-delpeer'))) return send({ form: 'peer', target: el.dataset.delpeer, answers: null }, function () { go('peerList'); });
   if ((el = closest(tg, 'data-submit'))) return el.dataset.submit === 'thanks' ? submitThanks() : el.dataset.submit === 'assign' ? submitAssign() : submitForm();

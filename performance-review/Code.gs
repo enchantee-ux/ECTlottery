@@ -9,7 +9,8 @@ const SHEETS = {
   self: '自評', mgr: '主管評', peer: '同儕評', thanks: '感謝卡', voice: '心聲',
   calib: '校準', result: '結果',
   up: '主管回饋', upDone: '主管回饋已填',
-  pay: '職等薪資', band: '薪資級距'
+  pay: '職等薪資', band: '薪資級距',
+  mgrNote: '主管評說明'
 };
 
 const ROSTER_HEADERS = ['編號', '姓名', '部門', '職稱', '直屬主管', '到職日', '角色', 'Email', '語言', '參加評等', '同儕評核人'];
@@ -34,6 +35,8 @@ const DEFAULT_SETTINGS = [
   ['來源_同儕', 25, ''],
   ['來源_自評', 15, ''],
   ['主管回饋最少份數', 3, '某位主管收到的匿名回饋少於此份數時，儀表板不顯示內容，避免被認出是誰寫的'],
+  ['主管評平均上限', 4.3, '主管給直屬同仁的整體平均達到這個分數，系統會請主管重新檢視或說明原因'],
+  ['主管評最小差距', 0.5, '主管評分最高與最低的同仁，平均分數差距小於這個數字，系統會請主管重新檢視或說明原因'],
   ['同儕最少人數', 3, '主管要為每位直屬同仁指定的同儕評核人數；實際評分者少於此人數時不計同儕分數，權重併回主管評'],
   ['同儕回饋最少人數', 0, '除了主管指定的對象外，每位同仁至少還要自選幾位同事填寫同儕回饋。0 代表只需完成指定對象'],
   ['寄件信箱', '', '驗證信的寄件地址。必須是部署帳號在 Gmail「帳戶和匯入」已驗證的寄件別名；留白或未驗證時用部署帳號寄'],
@@ -205,6 +208,7 @@ const CALIB_HEADERS = ['年度', '編號', '姓名', '最終等第', '備註', '
 const RESULT_HEADERS = ['年度', '編號', '姓名', '部門', '主管評分', '同儕評分', '同儕人數', '自評分', '總分',
   '建議等第', '最終等第', '年終月數', '在職比例', '折算月數', '年終金額', '晉級建議', '建議月薪', '關懷燈號', '關懷原因'];
 // 職等與薪資只有執行長的儀表板與匯出會讀取，同仁與主管的畫面完全不會載入這兩張表
+const MGR_NOTE_HEADERS = ['年度', '主管編號', '主管', '說明', '時間'];
 const PAY_HEADERS = ['編號', '姓名', '職等', '職級', '薪資表', '月薪', '現級起算日', '備註'];
 const BAND_HEADERS = ['薪資表', '職等', '1 級', '2 級', '3 級', '下限', '上限'];
 
@@ -235,6 +239,7 @@ function setup() {
   ensureSheet_(SHEETS.up, UP_HEADERS);
   ensureSheet_(SHEETS.upDone, UP_DONE_HEADERS);
   ensureSheet_(SHEETS.pay, PAY_HEADERS);
+  ensureSheet_(SHEETS.mgrNote, MGR_NOTE_HEADERS);
   ensureSheet_(SHEETS.band, BAND_HEADERS);
   ensureSheet_(SHEETS.calib, CALIB_HEADERS);
   ensureSheet_(SHEETS.result, RESULT_HEADERS);
@@ -394,7 +399,7 @@ function ensureSheet_(name, headers) {
 const MEMO_ = {};
 const CACHE_PREFIX = 'T2_';
 const MANUAL_SHEETS = [SHEETS.settings, SHEETS.roster, SHEETS.pay, SHEETS.band];
-const ALL_TABLES = [SHEETS.settings, SHEETS.roster, SHEETS.self, SHEETS.mgr, SHEETS.peer, SHEETS.thanks, SHEETS.voice, SHEETS.calib, SHEETS.up, SHEETS.upDone];
+const ALL_TABLES = [SHEETS.settings, SHEETS.roster, SHEETS.self, SHEETS.mgr, SHEETS.peer, SHEETS.thanks, SHEETS.voice, SHEETS.calib, SHEETS.up, SHEETS.upDone, SHEETS.mgrNote];
 
 function clearMemo_() { Object.keys(MEMO_).forEach(k => { delete MEMO_[k]; }); }
 function touch_(name) {
@@ -569,6 +574,10 @@ function ctx_() {
   readTable_(SHEETS.upDone).filter(r => String(r['年度']).trim() === year).forEach(r => {
     ctx.upDone[String(r['填寫人編號']).trim()] = String(r['狀態'] || '').trim();
   });
+  ctx.mgrNote = {};
+  readTable_(SHEETS.mgrNote).filter(r => String(r['年度']).trim() === year).forEach(r => {
+    ctx.mgrNote[String(r['主管編號']).trim()] = String(r['說明'] || '');
+  });
   ctx.calib = {};
   readTable_(SHEETS.calib).filter(r => String(r['年度']).trim() === year).forEach(r => {
     ctx.calib[String(r['編號']).trim()] = { grade: String(r['最終等第'] || '').trim(), note: String(r['備註'] || '') };
@@ -611,6 +620,27 @@ function assignPending_(ctx) {
   if (!ctx._pending) ctx._pending = ctx.people.filter(m => reportsOf_(ctx, m).some(r => r.raterIds.length < needRaters_(ctx, r)));
   return ctx._pending;
 }
+// 主管給分的分布：用來提醒主管分數要有差異，也讓執行長看得到各主管的鬆緊
+function mgrSpread_(ctx, mgr) {
+  const reps = reportsOf_(ctx, mgr);
+  const keys = [];
+  DIMENSIONS.forEach(d => d.items.forEach(it => keys.push(it.k)));
+  const rows = reps.map(p => {
+    const r = ctx.mgr.filter(x => x.from === mgr.id && x.to === p.id)[0];
+    return { id: p.id, name: p.name, avg: r ? round1_(avg_(keys.map(k => r.a[k]))) : null, items: r ? keys.map(k => r.a[k]) : [] };
+  });
+  const done = rows.filter(x => x.avg !== null);
+  const all = [].concat.apply([], done.map(x => x.items)).filter(v => typeof v === 'number');
+  const teamAvg = all.length ? Math.round(avg_(all) * 100) / 100 : null;
+  const avgs = done.map(x => x.avg);
+  const range = avgs.length ? Math.round((Math.max.apply(null, avgs) - Math.min.apply(null, avgs)) * 10) / 10 : null;
+  const maxAvg = num_(ctx.settings['主管評平均上限'], 4.3), minRange = num_(ctx.settings['主管評最小差距'], 0.5);
+  const complete = done.length === reps.length && reps.length > 0;
+  const tooHigh = complete && teamAvg >= maxAvg, tooFlat = complete && reps.length >= 3 && range < minRange;
+  return { n: reps.length, rated: done.length, teamAvg: teamAvg, range: range, high: all.length ? Math.round(all.filter(v => v >= 4).length / all.length * 100) : null,
+    rows: rows.map(x => ({ id: x.id, name: x.name, avg: x.avg })), tooHigh: tooHigh, tooFlat: tooFlat, concentrated: tooHigh || tooFlat,
+    maxAvg: maxAvg, minRange: minRange, note: ctx.mgrNote[mgr.id] || '' };
+}
 function needRaters_(ctx, p) { return Math.min(num_(ctx.settings['同儕最少人數'], 3), peerPool_(ctx, p).length); }
 function minPeerGive_(ctx, me) {
   if (!me.rated) return 0;
@@ -634,7 +664,9 @@ function tasks_(ctx, me) {
   t.thanks = st(ctx.thanks.filter(r => r.from === me.id).length >= Math.min(minThanks, ctx.people.length - 1));
   const reps = reportsOf_(ctx, me);
   if (reps.length) {
-    t.mgr = st(reps.every(p => ctx.mgr.some(r => r.from === me.id && r.to === p.id)));
+    const sp = mgrSpread_(ctx, me);
+    // 全部評完，而且分數有拉開差異（或已說明原因）才算完成。執行長自己的評分只提示、不擋
+    t.mgr = st(sp.rated === sp.n && (!sp.concentrated || me.isCEO || !!sp.note));
     t.assign = st(reps.every(p => p.raterIds.length >= needRaters_(ctx, p)));
   }
   return t;
@@ -680,6 +712,7 @@ function boot_(p) {
     peerCandidates: canPeer_(ctx, me) ? peerPool_(ctx, me).filter(x => peerIds.indexOf(x.id) < 0).map(brief_) : [],
     thanks: ctx.thanks.filter(r => r.from === me.id).map(r => ({ to: r.to, tag: r.tag, text: stripTr_(r.text) })),
     directory: ctx.people.filter(x => x.id !== me.id).map(brief_),
+    spread: reps.length ? mgrSpread_(ctx, me) : null,
     reports: reps.map(r => Object.assign(brief_(r), {
       self: (ctx.self.filter(x => x.from === r.id)[0] || {}).a || null,
       answers: one(ctx.mgr, r.id),
@@ -776,8 +809,17 @@ function save_(p) {
       return { saved: true };
     }
 
-    if (!FORMS[form]) throw err_('不支援的問卷', 'Biểu mẫu không hợp lệ.');
+    if (form !== 'mgrnote' && !FORMS[form]) throw err_('不支援的問卷', 'Biểu mẫu không hợp lệ.');
     if (form === 'up') return saveUp_(ctx, me, p.answers || {});
+    if (form === 'mgrnote') {
+      if (!reportsOf_(ctx, me).length) throw err_('只有主管需要填寫', 'Chỉ quản lý mới cần điền.');
+      const text = cleanText_(p.answers && p.answers.text, 600);
+      if (text.length < 10) throw err_('請至少寫 10 個字，說明為什麼分數接近', 'Vui lòng viết ít nhất 10 ký tự để giải thích.');
+      ensureSheet_(SHEETS.mgrNote, MGR_NOTE_HEADERS);
+      upsert_(SHEETS.mgrNote, r => String(r['年度']).trim() === ctx.year && String(r['主管編號']).trim() === me.id,
+        { '年度': ctx.year, '主管編號': me.id, '主管': me.name, '說明': withTr_(text), '時間': new Date() });
+      return { saved: true };
+    }
     let target = me;
     if (form === 'self') {
       if (!me.rated) throw err_('您本年度不需要填寫自評', 'Năm nay bạn không cần tự đánh giá.');
@@ -1053,6 +1095,7 @@ function dashboard_(p) {
     cfg: { year: ctx.year, open: yes_(s['開放填寫']), deadline: dateText_(s['截止日']) },
     forms: clientForms_(), dims: DIMENSIONS.map(d => ({ key: d.key, name: d.name })),
     assignPending: assignPending_(ctx).map(m => m.name),
+    mgrSpread: ctx.people.filter(m => reportsOf_(ctx, m).length).map(m => Object.assign({ id: m.id, name: m.name, dept: m.dept }, mgrSpread_(ctx, m))),
     people: res.people, dist: res.dist, caps: res.caps, ratedCount: res.ratedCount, mood: mood, upward: upward_(ctx), paySummary: res.paySummary,
     months: { S: num_(s['月數_S'], null), A: num_(s['月數_A'], null), B: num_(s['月數_B'], null), C: num_(s['月數_C'], null) }
   };

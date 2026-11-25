@@ -111,6 +111,23 @@ function logic() {
     assert.deepStrictEqual(s2.call('dashboard', { token: s2.tokens.E000 }).data.assignPending.length, 5);
     s2.assignAll();
     assert.strictEqual(s2.call('boot', { token: s2.tokens.E002 }).data.tasks.peer, 'todo'); assert.strictEqual(s2.call('dashboard', { token: s2.tokens.E000 }).data.assignPending.length, 0); }
+  // 主管給分太高或太接近時，要調整或說明才算完成
+  { const s4 = seed({ fill: false }); s4.assignAll(); const tk = s4.tokens.E001, c4 = s4.call;
+    const flat = v => ({ r1: v, r2: v, r3: v, s1: v, s2: v, t1: v, t2: v, a1: v, a2: v, kpi: '', strength: '穩定', improve: '', develop: '', summary: '穩定可靠', risk: '低', keyman: '否' });
+    const reps = c4('boot', { token: tk }).data.reports.map(r => r.id);
+    reps.forEach(id => assert(c4('save', { token: tk, form: 'mgr', target: id, answers: flat(5) }).ok));
+    let b = c4('boot', { token: tk }).data;
+    assert(b.spread.tooHigh && b.spread.tooFlat && b.spread.concentrated, '全部 5 分：偏高且太接近'); assert.strictEqual(b.tasks.mgr, 'todo', '未說明前不算完成');
+    assert(!c4('save', { token: tk, form: 'mgrnote', answers: { text: '太短' } }).ok);
+    assert(!c4('save', { token: s4.tokens.E002, form: 'mgrnote', answers: { text: '我不是主管但想寫說明看看' } }).ok, '非主管不能寫');
+    assert(c4('save', { token: tk, form: 'mgrnote', answers: { text: '團隊成員都是資深同仁，表現確實相近' } }).ok);
+    b = c4('boot', { token: tk }).data; assert.strictEqual(b.tasks.mgr, 'done'); assert(b.spread.note.includes('資深'));
+    const ms = c4('dashboard', { token: s4.tokens.E000 }).data.mgrSpread.find(m => m.id === 'E001'); assert(ms.concentrated && ms.note.includes('資深'), '執行長看得到分布與說明');
+    assert(!JSON.stringify(c4('boot', { token: s4.tokens.E002 }).data).includes('資深同仁，表現'), '部屬看不到主管的說明');
+    // 拉開差異後就不需要說明
+    const s5 = seed({ fill: false }); s5.assignAll(); const t5 = s5.tokens.E001; const r5 = s5.call('boot', { token: t5 }).data.reports.map(r => r.id);
+    r5.forEach((id, i) => assert(s5.call('save', { token: t5, form: 'mgr', target: id, answers: flat([4, 3, 2][i % 3]) }).ok));
+    const b5 = s5.call('boot', { token: t5 }).data; assert(!b5.spread.concentrated, JSON.stringify(b5.spread)); assert.strictEqual(b5.tasks.mgr, 'done'); }
   // 職等薪資：年終金額與晉級建議，只有執行長拿得到
   { const dd = call('dashboard', { token: tokens.E000 }).data; const P = id => dd.people.find(p => p.id === id);
     const rated2 = dd.people.filter(p => p.rated && p.pay);
