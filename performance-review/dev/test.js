@@ -131,7 +131,7 @@ function logic() {
   // 職等薪資：年終金額與晉級建議，只有執行長拿得到
   { const dd = call('dashboard', { token: tokens.E000 }).data; const P = id => dd.people.find(p => p.id === id);
     const rated2 = dd.people.filter(p => p.rated && p.pay);
-    rated2.forEach(p => { if (p.proMonths !== null) assert.strictEqual(p.pay.bonus, Math.round(p.pay.salary * p.proMonths), '年終金額＝月薪×折算月數'); });
+    rated2.forEach(p => { if (p.proMonths !== null) assert.strictEqual(p.pay.bonus, Math.round(p.pay.salary * p.proMonths * p.pay.coef), '年終金額＝月薪×折算月數×係數'); });
     assert(dd.paySummary.hasData && dd.paySummary.bonus === rated2.reduce((a, p) => a + (p.pay.bonus || 0), 0));
     const steps = { 1: [29500, 30500, 31500], 2: [32500, 34000, 35500], 3: [37000, 39000, 41000] };
     let seen = {};

@@ -54,7 +54,8 @@ const DEFAULT_SETTINGS = [
   ['月數_S', '', '各等第對應的年終月數，由執行長每年填入'],
   ['月數_A', '', ''],
   ['月數_B', '', ''],
-  ['月數_C', '', '']
+  ['月數_C', '', ''],
+  ['年終預算', '', '年終獎金總額的預算（元）。填了之後，儀表板會顯示目前試算的總額占預算多少']
 ];
 
 const DIMENSIONS = [
@@ -213,7 +214,7 @@ const RESULT_HEADERS = ['年度', '編號', '姓名', '部門', '主管評分', 
   '建議等第', '最終等第', '年終月數', '在職比例', '折算月數', '年終金額', '晉級建議', '建議月薪', '關懷燈號', '關懷原因'];
 // 職等與薪資只有執行長的儀表板與匯出會讀取，同仁與主管的畫面完全不會載入這兩張表
 const MGR_NOTE_HEADERS = ['年度', '主管編號', '主管', '說明', '時間'];
-const PAY_HEADERS = ['編號', '姓名', '職等', '職級', '薪資表', '月薪', '現級起算日', '備註'];
+const PAY_HEADERS = ['編號', '姓名', '職等', '職級', '薪資表', '月薪', '現級起算日', '備註', '年終係數'];
 const BAND_HEADERS = ['薪資表', '職等', '1 級', '2 級', '3 級', '下限', '上限'];
 
 /* ───────────── 試算表選單與初始化 ───────────── */
@@ -1156,8 +1157,9 @@ function applyPay_(ctx, res) {
     const salary = num_(r['月薪'], null);
     const band = bands[table + '|' + grade] || null;
     const since = toDate_(r['現級起算日']);
+    const coef = Math.max(0, num_(r['年終係數'], 1));   // 留白＝1。業務另有每月獎金可填較低的係數；不發填 0
     p.pay = { grade: grade, step: step, table: table, salary: salary, note: String(r['備註'] || ''),
-      bonus: (salary !== null && p.proMonths !== null) ? Math.round(salary * p.proMonths) : null,
+      coef: coef, bonus: (salary !== null && p.proMonths !== null) ? Math.round(salary * p.proMonths * coef) : null,
       lo: band ? band.lo : null, hi: band ? band.hi : null };
     if (salary !== null) { sum.payroll += salary; sum.withPay++; }
     if (p.pay.bonus !== null) { sum.bonus += p.pay.bonus; sum.bonusN++; }
@@ -1180,7 +1182,7 @@ function applyPay_(ctx, res) {
     if (p.raise.delta) { sum.raise += p.raise.delta; sum.raiseN++; }
   });
   res.paySummary = Object.assign(sum, { pct: sum.payroll ? Math.round(sum.raise / sum.payroll * 1000) / 10 : null,
-    hasData: sum.withPay > 0 });
+    hasData: sum.withPay > 0, budget: num_(ctx.settings['年終預算'], null) });
 }
 
 function upward_(ctx) {

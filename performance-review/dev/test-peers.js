@@ -79,3 +79,14 @@ n0 = be.outbox.length; r = be.api.sendReminders_(true); assert.strictEqual(be.ou
 setting('開放填寫', '否');
 assert.strictEqual(be.api.sendReminders_(true).reason, 'closed');
 console.log('peers ok', { reminders: mails.length });
+
+// 年終係數與預算
+{
+  const s2 = seed(); const dd = JSON.parse(s2.be.api.api('dashboard', JSON.stringify({ token: s2.tokens.E000 }))).data;
+  const P = id => dd.people.filter(q => q.id === id)[0];
+  assert.strictEqual(P('E014').pay.coef, 0.8); assert.strictEqual(P('E014').pay.bonus, Math.round(P('E014').pay.salary * P('E014').proMonths * 0.8));
+  assert.strictEqual(P('E015').pay.bonus, 0, '係數 0 不發');
+  assert.strictEqual(P('E002').pay.coef, 1);
+  assert.strictEqual(dd.paySummary.budget, 400000);
+  console.log('bonus ok', dd.paySummary.bonus, '/', dd.paySummary.budget);
+}

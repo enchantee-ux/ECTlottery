@@ -22,6 +22,7 @@ function seed({ fill = true } = {}) {
   be.sheets['設定'].data.forEach(r => {
     if (r[0] === '年度') r[1] = 2026;
     if (r[0] === '截止日') r[1] = '2026-12-11';
+    if (r[0] === '年終預算') r[1] = 400000;
     if (r[0] === '月數_S') r[1] = 3; if (r[0] === '月數_A') r[1] = 2; if (r[0] === '月數_B') r[1] = 1.5; if (r[0] === '月數_C') r[1] = 1;
   });
   // 職等與薪資（僅執行長儀表板使用）
@@ -30,7 +31,7 @@ function seed({ fill = true } = {}) {
     if (r[6] === '執行長') return;
     const mgr = r[3].includes('主管');
     const g = mgr ? '5 等' : ['1 等', '2 等', '3 等'][i % 3], step = mgr ? '' : (i % 3 + 1) + ' 級';
-    be.sheets['職等薪資'].data.push([r[0], r[1], g, step, '營運', mgr ? 45000 : 30000 + i * 500, r[0] === 'E003' ? '2024-01-01' : '', '']);
+    be.sheets['職等薪資'].data.push([r[0], r[1], g, step, '營運', mgr ? 45000 : 30000 + i * 500, r[0] === 'E003' ? '2024-01-01' : '', '', r[0] === 'E014' ? 0.8 : r[0] === 'E015' ? 0 : '']);
   });
   be.expireCache();
   const call = (action, payload) => JSON.parse(be.api.api(action, JSON.stringify(payload)));

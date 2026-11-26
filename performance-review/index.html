@@ -707,6 +707,16 @@ function dashProgress() {
       return '<div class="prow"><div style="flex:1;min-width:0">' + who(p) + '<p class="small muted" style="font-weight:400">' + Object.keys(names).filter(function (k) { return p.tasks[k] === 'todo'; }).map(function (k) { return names[k]; }).join('、') + '</p></div></div>';
     }).join('') : '<p class="muted">所有人都完成了。</p>') + '</div>' + gap;
 }
+function budgetHtml() {
+  var ps = DB.paySummary;
+  if (!ps || !ps.bonusN) return '';
+  if (!ps.budget) return '<p class="muted small">尚未設定預算。在「設定」工作表的「年終預算」填入金額後，這裡會顯示占預算的比例。</p>';
+  var pct = Math.round(ps.bonus / ps.budget * 1000) / 10, over = ps.bonus > ps.budget;
+  return '<div class="kv"><span>年終預算</span><span>' + nf(ps.budget) + ' 元</span></div>' +
+    '<div class="kv"><span>占預算</span><span style="font-weight:700;color:var(' + (over ? '--bad' : '--good') + ')">' + pct + '%</span></div>' +
+    '<div style="height:8px;border-radius:99px;background:var(--bg);overflow:hidden;margin:6px 0"><div style="height:100%;width:' + Math.min(100, pct) + '%;background:var(' + (over ? '--bad' : '--accent') + ')"></div></div>' +
+    (over ? '<div class="notice"><b>超出預算 ' + nf(ps.bonus - ps.budget) + ' 元</b><br>可以調整等第、年終係數，或提高預算。</div>' : '<p class="muted small">還有 ' + nf(ps.budget - ps.bonus) + ' 元的空間。同儕回饋未補齊、尚未結算的同仁還沒算進來。</p>');
+}
 function dashResult() {
   var d = DB.dist, m = DB.months;
   var tiles = ['S', 'A', 'B', 'C'].map(function (g) {
@@ -719,8 +729,8 @@ function dashResult() {
     (m.S === null ? '<p class="muted small">尚未設定各等第的年終月數，請到試算表「設定」工作表填寫「月數_S」等四項。</p>' : '') + '</div>';
   var sumPro = 0, hasPro = false; rated.forEach(function (p) { if (p.proMonths !== null) { sumPro += p.proMonths; hasPro = true; } });
   if (hasPro) h += '<div class="card"><h3>年終試算</h3><div class="kv"><span>參加評等者的折算月數合計</span><span>' + (Math.round(sumPro * 100) / 100) + ' 個月薪</span></div>' +
-    (DB.paySummary && DB.paySummary.bonusN ? '<div class="kv"><span>年終金額合計（' + DB.paySummary.bonusN + ' 人）</span><span>' + nf(DB.paySummary.bonus) + ' 元</span></div>' : '') +
-    '<p class="muted small">折算月數＝等第月數 × 在職比例；年終金額＝月薪 × 折算月數。在職比例依名冊的到職日計算，月薪取自「職等薪資」工作表。調整等第後金額會跟著變。</p></div>';
+    (DB.paySummary && DB.paySummary.bonusN ? '<div class="kv"><span>年終金額合計（' + DB.paySummary.bonusN + ' 人）</span><span>' + nf(DB.paySummary.bonus) + ' 元</span></div>' : '') + budgetHtml() +
+    '<p class="muted small">折算月數＝等第月數 × 在職比例；年終金額＝月薪 × 折算月數 × 年終係數（「職等薪資」的「年終係數」欄，留白是 1，不發填 0）。在職比例依名冊的到職日計算，月薪取自「職等薪資」工作表。調整等第後金額會跟著變。</p></div>';
   var lite = DB.people.filter(function (p) { return !p.rated; });
   if (DB.mgrSpread && DB.mgrSpread.some(function (m) { return m.rated; })) {
     h += '<div class="card"><h3>各主管的給分習慣</h3><p class="muted small">平均越高代表給分越鬆，差距越小代表越看不出高低。確認等第時可以對照。標示「偏高」「太接近」的主管，系統已請他重新檢視或說明。</p><div class="scroll"><table><thead><tr><th>主管</th><th>已評</th><th>平均</th><th>高低差</th><th>4 分以上</th><th>狀況</th></tr></thead><tbody>' +
@@ -730,7 +740,7 @@ function dashResult() {
   var pendN = rated.filter(function (p) { return p.score.pending && !p.calibrated; }).length;
   if (pendN) h += '<div class="notice"><b>有 ' + pendN + ' 位同仁的同儕回饋未滿 3 份，尚未結算等第</b><br>名單在「填寫進度」分頁。補齊後系統會自動算出建議等第；確定補不齊時，可以用下拉選單直接給等第。</div>';
   h += '<div class="card"><h3>個人結果（依總分排序）</h3><p class="muted small">下拉選單可調整最終等第，未調整者採系統建議。感謝卡不計分，分數接近時可作為參考。</p>' + rated.map(function (p) {
-    return '<div class="prow"><span class="dot ' + p.light + '" title="關懷燈號"></span><div style="flex:1;min-width:0">' + who(p) + '<p class="small muted num" style="font-weight:400">在職 ' + Math.round(p.ratio * 100) + '%' + (p.proMonths !== null ? '・折算 ' + p.proMonths + ' 個月' : '') + (p.pay && p.pay.bonus !== null ? '・年終 ' + nf(p.pay.bonus) : '') + '</p>' + '<p class="small muted num" style="font-weight:400">感謝卡 ' + p.thanksIn.length + ' 張' + (p.thanksIn.length ? '，來自 ' + thanksDepts(p) + ' 個部門' : '') + '</p>' + (p.mgr && p.mgr.summary ? '<p class="small" style="color:var(--ink)">主管總評：' + esc(p.mgr.summary) + '</p>' : '') + '</div>' +
+    return '<div class="prow"><span class="dot ' + p.light + '" title="關懷燈號"></span><div style="flex:1;min-width:0">' + who(p) + '<p class="small muted num" style="font-weight:400">在職 ' + Math.round(p.ratio * 100) + '%' + (p.proMonths !== null ? '・折算 ' + p.proMonths + ' 個月' : '') + (p.pay && p.pay.bonus !== null ? (p.pay.coef !== 1 ? '・係數 ' + p.pay.coef : '') + '・年終 ' + nf(p.pay.bonus) : '') + '</p>' + '<p class="small muted num" style="font-weight:400">感謝卡 ' + p.thanksIn.length + ' 張' + (p.thanksIn.length ? '，來自 ' + thanksDepts(p) + ' 個部門' : '') + '</p>' + (p.mgr && p.mgr.summary ? '<p class="small" style="color:var(--ink)">主管總評：' + esc(p.mgr.summary) + '</p>' : '') + '</div>' +
       '<span class="num">' + (p.score.pending && p.score.total !== null ? '<span class="small muted">暫估 </span>' : '') + fmt(p.score.total) + '</span>' +
       '<select data-final="' + esc(p.id) + '" aria-label="' + esc(p.name) + ' 最終等第">' + ['', 'S', 'A', 'B', 'C'].map(function (g) {
         var sel = (p.calibrated ? p.final : '') === g;
@@ -820,7 +830,7 @@ function viewPerson() {
   if (p.rated) {
     h += '<div class="card"><h3>分數</h3><div class="grid4">' + [['總分', s.total], ['主管評', s.mgr], ['同儕(' + s.peerN + '人)', s.peer], ['自評', s.self]].map(function (x) {
       return '<div class="tile"><div class="num big">' + fmt(x[1]) + '</div><div class="small muted">' + x[0] + '</div></div>'; }).join('') + '</div>' +
-      (p.pay ? '<div class="kv"><span>職等職級</span><span>' + (p.pay.grade ? p.pay.grade + ' 等' + (p.pay.step ? ' ' + p.pay.step + ' 級' : '') : '—') + '</span></div><div class="kv"><span>月薪</span><span>' + nf(p.pay.salary) + '</span></div>' + (p.pay.bonus !== null ? '<div class="kv"><span>年終金額</span><span>' + nf(p.pay.bonus) + '</span></div>' : '') + (p.raise ? '<div class="kv"><span>晉級建議</span><span>' + esc(p.raise.text) + '</span></div>' : '') : '') +
+      (p.pay ? '<div class="kv"><span>職等職級</span><span>' + (p.pay.grade ? p.pay.grade + ' 等' + (p.pay.step ? ' ' + p.pay.step + ' 級' : '') : '—') + '</span></div><div class="kv"><span>月薪</span><span>' + nf(p.pay.salary) + '</span></div>' + (p.pay.bonus !== null ? '<div class="kv"><span>年終金額' + (p.pay.coef !== 1 ? '（係數 ' + p.pay.coef + '）' : '') + '</span><span>' + nf(p.pay.bonus) + '</span></div>' : '') + (p.raise ? '<div class="kv"><span>晉級建議</span><span>' + esc(p.raise.text) + '</span></div>' : '') : '') +
       '<div class="kv"><span>在職比例</span><span>' + Math.round(p.ratio * 100) + '%' + (p.joined ? '（' + esc(p.joined) + ' 到職）' : '') + '</span></div>' + (p.proMonths !== null ? '<div class="kv"><span>折算月數</span><span>' + p.months + ' × ' + Math.round(p.ratio * 100) + '% = ' + p.proMonths + ' 個月</span></div>' : '') +
       '<div class="kv"><span>等第</span><span>' + (p.final || '—') + (p.calibrated ? '（已調整，系統建議 ' + (p.suggested || '—') + '）' : '') + (p.months !== null ? '・年終 ' + p.months + ' 個月' : '') + '</span></div>' +
       (s.note ? '<p class="small muted">' + esc(s.note) + '</p>' : '') +
