@@ -299,10 +299,10 @@ async function ui(outDir) {
   await page.waitForSelector('.task'); await page.click('[data-go="assignList"]');
   await page.locator('[data-assign]').first().click();
   while (await page.locator('[data-pick].on').count()) await page.locator('[data-pick].on').first().click();
-  for (let i = 0; i < 3; i++) await page.locator('[data-pick]').nth(i).click();
+  for (let i = 0; i < 4; i++) await page.locator('[data-pick]').nth(i).click();
   await shot('06a-assign'); await noOverflow();
   await page.click('[data-submit]'); await page.waitForSelector('[data-assign]');
-  assert.strictEqual(call('boot', { token: tokens.E001 }).data.reports[0].raters.length, 3);
+  assert.strictEqual(call('boot', { token: tokens.E001 }).data.reports[0].raters.length, 4);
   assert.strictEqual(call('boot', { token: tokens.E003 }).data.peers.filter(p => p.assigned).length >= 1, true, '被指定的人會看到對象');
   await page.click('[data-go="home"]'); await page.click('[data-go="mgrList"]');
   await page.locator('[data-report]').first().click(); await fillScores();

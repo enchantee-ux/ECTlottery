@@ -42,14 +42,14 @@ function seed({ fill = true } = {}) {
     tokens[r[0]] = call('verifyCode', { email, code: lastCode() }).data.token;
   });
 
-  // 主管為每位直屬同仁指定三位同儕評核人
+  // 主管為每位直屬同仁指定四位同儕評核人
   const assignAll = () => Object.keys(tokens).forEach(id => {
     const b = call('boot', { token: tokens[id] }).data;
     b.reports.forEach((r, i) => {
       const same = r.pool.filter(x => x.dept === r.dept).slice(0, 2), per = {};
       const cross = r.pool.filter(x => x.dept !== r.dept);
       const picks = same.slice();
-      for (let k = 0; picks.length < 3 && k < cross.length; k++) {
+      for (let k = 0; picks.length < 4 && k < cross.length; k++) {
         const c = cross[(k + i * 2) % cross.length];
         if (picks.indexOf(c) < 0 && (per[c.dept] || 0) < 2) { picks.push(c); per[c.dept] = (per[c.dept] || 0) + 1; }
       }

@@ -59,12 +59,13 @@ function createBackend() {
       deleteProperty: k => { delete props[k]; }, getProperties: () => Object.assign({}, props) }) },
     MailApp: { sendEmail: m => outbox.push(m) },
     GmailApp: { getAliases: () => gmail.aliases.slice(), sendEmail: (to, subject, body, opts) => { if (gmail.fail) throw new Error('alias error'); outbox.push({ to, subject, body, from: opts.from, name: opts.name }); } },
+    ScriptApp: { getService: () => ({ getUrl: () => 'https://example.test/exec' }), getProjectTriggers: () => [] },
     LanguageApp: { translate: text => '（譯）' + text.length + ' 字' },
     console
   };
   vm.createContext(sandbox);
   const code = fs.readFileSync(path.join(__dirname, '..', 'Code.gs'), 'utf8');
-  vm.runInContext(code + '\n;globalThis.__api = { setup, writeResults, api };', sandbox);
+  vm.runInContext(code + '\n;globalThis.__api = { setup, writeResults, api, sendReminders_ };', sandbox);
   // 測試直接改工作表（等同執行長手動編輯並等快取過期）後呼叫
   const expireCache = () => Object.keys(cache).filter(k => k.indexOf('T2_') === 0).forEach(k => { delete cache[k]; });
   return { sheets, api: sandbox.__api, outbox, props, cache, expireCache, gmail };

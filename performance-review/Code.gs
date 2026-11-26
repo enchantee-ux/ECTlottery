@@ -15,6 +15,7 @@ const SHEETS = {
 
 const ROSTER_HEADERS = ['編號', '姓名', '部門', '職稱', '直屬主管', '到職日', '角色', 'Email', '語言', '參加評等', '同儕評核人'];
 const KEY_HEADERS = ['年度', '時間', '填寫人編號', '填寫人', '對象編號', '對象'];
+const NA_H = '無法評分';   // 同儕回饋：被指定的人回報「合作不多，無法評分」
 const SCALE = ['待加強', '尚可', '符合期待', '超出期待', '表現卓越'];
 const AGREE = ['非常不同意', '不同意', '普通', '同意', '非常同意'];
 const THANKS_TAGS = ['最佳支援', '專業可靠', '溫暖貼心', '創意點子', '使命必達'];
@@ -37,7 +38,10 @@ const DEFAULT_SETTINGS = [
   ['主管回饋最少份數', 3, '某位主管收到的匿名回饋少於此份數時，儀表板不顯示內容，避免被認出是誰寫的'],
   ['主管評平均上限', 4.3, '主管給直屬同仁的整體平均達到這個分數，系統會請主管重新檢視或說明原因'],
   ['主管評最小差距', 0.5, '主管評分最高與最低的同仁，平均分數差距小於這個數字，系統會請主管重新檢視或說明原因'],
-  ['同儕最少人數', 3, '主管要為每位直屬同仁指定的同儕評核人數；實際評分者少於此人數時不計同儕分數，權重併回主管評'],
+  ['同儕最少人數', 3, '每位同仁至少要收到幾份有效的同儕回饋。未達到時這位同仁暫不結算等第，須補齊或由執行長直接給等第'],
+  ['同儕指定人數', 4, '主管要為每位直屬同仁指定的同儕評核人數下限。比「同儕最少人數」多一位當緩衝'],
+  ['提醒信天數', '7,3,1', '截止日前幾天自動寄提醒信給還沒完成的同仁，用逗號分隔。需先從選單「績效評核」啟用自動提醒信'],
+  ['系統連結', '', '提醒信裡附上的系統網址'],
   ['同儕回饋最少人數', 0, '除了主管指定的對象外，每位同仁至少還要自選幾位同事填寫同儕回饋。0 代表只需完成指定對象'],
   ['寄件信箱', '', '驗證信的寄件地址。必須是部署帳號在 Gmail「帳戶和匯入」已驗證的寄件別名；留白或未驗證時用部署帳號寄'],
   ['登入有效天數', 30, '同仁用 Email 驗證碼登入後，幾天內不必重新登入'],
@@ -201,7 +205,7 @@ const UP_DONE_HEADERS = ['年度', '填寫人編號', '填寫人', '狀態'];
 
 function hdr_(f) { return f.h || f.label; }
 function formHeaders_(form) {
-  return KEY_HEADERS.concat(FORMS[form].fields.map(hdr_));
+  return KEY_HEADERS.concat(FORMS[form].fields.map(hdr_)).concat(form === 'peer' ? [NA_H] : []);
 }
 const THANKS_HEADERS = KEY_HEADERS.concat(['標籤', '內容']);
 const CALIB_HEADERS = ['年度', '編號', '姓名', '最終等第', '備註', '時間'];
@@ -218,6 +222,10 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu('績效評核')
     .addItem('① 初始化工作表', 'setup')
     .addItem('② 匯出評核結果', 'writeResults')
+    .addSeparator()
+    .addItem('③ 啟用自動提醒信', 'enableReminders')
+    .addItem('④ 現在就寄提醒信', 'remindNow')
+    .addItem('停用自動提醒信', 'disableReminders')
     .addToUi();
 }
 
@@ -558,9 +566,11 @@ function ctx_() {
   const ctx = { settings: settings, year: year, people: people, byId: byId, base: base };
   ['self', 'mgr', 'peer', 'voice'].forEach(f => {
     ctx[f] = readTable_(FORMS[f].sheet).filter(r => String(r['年度']).trim() === year).map(r => ({
-      from: String(r['填寫人編號']).trim(), to: String(r['對象編號']).trim(), a: rowToAnswers_(f, r)
+      from: String(r['填寫人編號']).trim(), to: String(r['對象編號']).trim(), a: rowToAnswers_(f, r), na: f === 'peer' && yes_(r[NA_H])
     })).filter(r => byId[r.from] && byId[r.to]);
   });
+  ctx.peerNA = ctx.peer.filter(r => r.na);
+  ctx.peer = ctx.peer.filter(r => !r.na);
   ctx.thanks = readTable_(SHEETS.thanks).filter(r => String(r['年度']).trim() === year).map(r => ({
     from: String(r['填寫人編號']).trim(), to: String(r['對象編號']).trim(),
     tag: String(r['標籤'] || ''), text: String(r['內容'] || '')
@@ -617,7 +627,7 @@ function peerPool_(ctx, me) {
 }
 // 還沒為所有直屬同仁指定完同儕評核人的主管（含執行長）。全部指定完，同儕回饋才開放
 function assignPending_(ctx) {
-  if (!ctx._pending) ctx._pending = ctx.people.filter(m => reportsOf_(ctx, m).some(r => r.raterIds.length < needRaters_(ctx, r)));
+  if (!ctx._pending) ctx._pending = ctx.people.filter(m => reportsOf_(ctx, m).some(r => r.raterIds.length < needActive_(ctx, r)));
   return ctx._pending;
 }
 // 主管給分的分布：用來提醒主管分數要有差異，也讓執行長看得到各主管的鬆緊
@@ -641,7 +651,15 @@ function mgrSpread_(ctx, mgr) {
     rows: rows.map(x => ({ id: x.id, name: x.name, avg: x.avg })), tooHigh: tooHigh, tooFlat: tooFlat, concentrated: tooHigh || tooFlat,
     maxAvg: maxAvg, minRange: minRange, note: ctx.mgrNote[mgr.id] || '' };
 }
-function needRaters_(ctx, p) { return Math.min(num_(ctx.settings['同儕最少人數'], 3), peerPool_(ctx, p).length); }
+function raterBase_(ctx) { return Math.max(num_(ctx.settings['同儕指定人數'], 4), num_(ctx.settings['同儕最少人數'], 3)); }
+// 被指定、但回報「合作不多，無法評分」的人
+function declinedOf_(ctx, p) { return ctx.peerNA.filter(r => r.to === p.id).map(r => r.from); }
+function activeRaters_(ctx, p) { const d = declinedOf_(ctx, p); return p.raterIds.filter(id => d.indexOf(id) < 0); }
+// 主管要指定的有效人數：回報無法評分的人不算，也不能再選
+function needActive_(ctx, p) {
+  const d = declinedOf_(ctx, p);
+  return Math.min(raterBase_(ctx), peerPool_(ctx, p).filter(x => d.indexOf(x.id) < 0).length);
+}
 function minPeerGive_(ctx, me) {
   if (!me.rated) return 0;
   return Math.min(num_(ctx.settings['同儕回饋最少人數'], 3), peerPool_(ctx, me).length);
@@ -655,7 +673,7 @@ function tasks_(ctx, me) {
   if (!me.isCEO) t.voice = st(ctx.voice.some(r => r.from === me.id));
   if (canPeer_(ctx, me)) {
     const need = assignedTo_(ctx, me);
-    const done = id => ctx.peer.some(r => r.from === me.id && r.to === id);
+    const done = id => ctx.peer.some(r => r.from === me.id && r.to === id) || ctx.peerNA.some(r => r.from === me.id && r.to === id);
     const given = ctx.peer.filter(r => r.from === me.id).length, min = minPeerGive_(ctx, me);
     t.peer = (need.length || min) ? st(need.every(p => done(p.id)) && given >= min) : (given ? 'done' : 'optional');
     if (assignPending_(ctx).length) t.peer = 'wait';
@@ -667,7 +685,7 @@ function tasks_(ctx, me) {
     const sp = mgrSpread_(ctx, me);
     // 全部評完，而且分數有拉開差異（或已說明原因）才算完成。執行長自己的評分只提示、不擋
     t.mgr = st(sp.rated === sp.n && (!sp.concentrated || me.isCEO || !!sp.note));
-    t.assign = st(reps.every(p => p.raterIds.length >= needRaters_(ctx, p)));
+    t.assign = st(reps.every(p => activeRaters_(ctx, p).length >= needActive_(ctx, p)));
   }
   return t;
 }
@@ -708,7 +726,7 @@ function boot_(p) {
     voice: one(ctx.voice, me.id),
     canPeer: canPeer_(ctx, me),
     peers: peerIds.map(id => Object.assign(brief_(ctx.byId[id]),
-      { assigned: assigned.indexOf(id) >= 0, answers: one(ctx.peer, id) })),
+      { assigned: assigned.indexOf(id) >= 0, answers: one(ctx.peer, id), na: ctx.peerNA.some(r => r.from === me.id && r.to === id) })),
     peerCandidates: canPeer_(ctx, me) ? peerPool_(ctx, me).filter(x => peerIds.indexOf(x.id) < 0).map(brief_) : [],
     thanks: ctx.thanks.filter(r => r.from === me.id).map(r => ({ to: r.to, tag: r.tag, text: stripTr_(r.text) })),
     directory: ctx.people.filter(x => x.id !== me.id).map(brief_),
@@ -716,7 +734,7 @@ function boot_(p) {
     reports: reps.map(r => Object.assign(brief_(r), {
       self: (ctx.self.filter(x => x.from === r.id)[0] || {}).a || null,
       answers: one(ctx.mgr, r.id),
-      raters: r.raterIds, need: needRaters_(ctx, r), max: MAX_RATERS, maxPerDept: MAX_PER_DEPT, loadWarn: RATER_LOAD_WARN,
+      raters: r.raterIds, declined: declinedOf_(ctx, r), need: needActive_(ctx, r), max: MAX_RATERS, maxPerDept: MAX_PER_DEPT, loadWarn: RATER_LOAD_WARN,
       pool: peerPool_(ctx, r).map(x => Object.assign(brief_(x), {
         load: ctx.people.filter(o => o.id !== r.id && o.raterIds.indexOf(x.id) >= 0).length }))
     })),
@@ -841,9 +859,17 @@ function save_(p) {
           deleteRows_(FORMS.peer.sheet, same(target.id));
           return { saved: true };
         }
+        if (p.answers && p.answers.na === true) {
+          if (!assigned) throw err_('只有主管指定的對象才需要回報', 'Chỉ cần báo cho người được quản lý chỉ định.');
+          const blank = Object.assign(keyOf(target), {});
+          blank[NA_H] = '是';
+          upsert_(FORMS.peer.sheet, same(target.id), blank);
+          return { saved: true };
+        }
       }
     }
     const obj = Object.assign(keyOf(target), validate_(form, p.answers));
+    if (form === 'peer') obj[NA_H] = '';
     upsert_(FORMS[form].sheet, same(target.id), obj);
     return { saved: true };
   } finally {
@@ -901,7 +927,9 @@ function assign_(p) {
     const pool = peerPool_(ctx, target).map(x => x.id);
     const ids = (Array.isArray(p.raters) ? p.raters : []).map(String)
       .filter((id, i, a) => pool.indexOf(id) >= 0 && a.indexOf(id) === i);
-    const need = needRaters_(ctx, target);
+    const declined = declinedOf_(ctx, target);
+    if (ids.some(id => declined.indexOf(id) >= 0)) throw err_('名單裡有同事已回報「合作不多，無法評分」，請改選其他同事', 'Trong danh sách có người đã báo "ít làm việc cùng, không thể đánh giá". Vui lòng chọn người khác.');
+    const need = needActive_(ctx, target);
     if (ids.length < need) throw err_('請至少指定 ' + need + ' 位同儕評核人', 'Vui lòng chỉ định ít nhất ' + need + ' người.');
     if (ids.length > MAX_RATERS) throw err_('最多指定 ' + MAX_RATERS + ' 位同儕評核人', 'Chỉ định tối đa ' + MAX_RATERS + ' người.');
     const poolPeople = peerPool_(ctx, target);
@@ -969,13 +997,14 @@ function computeResults_(ctx) {
     const peerAvg = avg_(peerRows.map(r => avg_(['p1', 'p2', 'p3', 'p4'].map(k => r.a[k]))));
     const peerScore = peerAvg === null ? null : peerAvg * 20;
 
-    let total = null, note = '';
+    let total = null, note = '', pending = false;
+    const declined = declinedOf_(ctx, p);
     if (p.rated) {
       if (!mgrS || mgrS.total === null) note = '主管尚未評分';
       else {
         let wM = num_(s['來源_主管'], 60), wP = num_(s['來源_同儕'], 25), wS = num_(s['來源_自評'], 15);
         const notes = [];
-        if (peerRows.length < minPeers || peerScore === null) { wM += wP; wP = 0; notes.push('同儕評分不足 ' + minPeers + ' 人，未計入'); }
+        if (peerRows.length < minPeers || peerScore === null) { wM += wP; wP = 0; pending = true; notes.push('同儕回饋未滿 ' + minPeers + ' 份，尚未結算等第（總分為暫估，未計入同儕）'); }
         if (!selfS || selfS.total === null) { wM += wS; wS = 0; notes.push('未填自評，未計入'); }
         total = (wM * mgrS.total + wP * (peerScore || 0) + wS * ((selfS && selfS.total) || 0)) / (wM + wP + wS);
         note = notes.join('；');
@@ -986,9 +1015,12 @@ function computeResults_(ctx) {
     return {
       id: p.id, name: p.name, dept: p.dept, title: p.title, rated: p.rated, mgrName: mgr ? mgr.name : '',
       tasks: tasks_(ctx, p),
+      peerGap: p.rated ? { need: minPeers, have: peerRows.length,
+        waiting: activeRaters_(ctx, p).filter(id => !peerRows.some(r => r.from === id)).map(id => ctx.byId[id].name),
+        declined: p.raterIds.filter(id => declined.indexOf(id) >= 0).map(id => ctx.byId[id].name) } : null,
       score: {
         mgr: mgrS ? round1_(mgrS.total) : null, self: selfS ? round1_(selfS.total) : null,
-        peer: round1_(peerScore), peerN: peerRows.length, total: round1_(total), note: note,
+        peer: round1_(peerScore), peerN: peerRows.length, total: round1_(total), note: note, pending: pending,
         mgrDims: mgrS ? mgrS.dims : null, selfDims: selfS ? selfS.dims : null
       },
       self: selfRow ? selfRow.a : null, mgr: mgrRow ? mgrRow.a : null, voice: voiceRow ? voiceRow.a : null,
@@ -1006,7 +1038,7 @@ function computeResults_(ctx) {
   const capA = Math.max(1, Math.round(rated.length * num_(s['A比例上限'], 30) / 100));
   const thS = num_(s['S門檻'], 90), thA = num_(s['A門檻'], 80), thC = num_(s['C門檻'], 60);
   let nS = 0, nA = 0;
-  rated.filter(p => p.score.total !== null).sort((a, b) => b.score.total - a.score.total).forEach(p => {
+  rated.filter(p => p.score.total !== null && !p.score.pending).sort((a, b) => b.score.total - a.score.total).forEach(p => {
     const t = p.score.total;
     if (t >= thS && nS < capS) { p.suggested = 'S'; nS++; }
     else if (t >= thA && nA < capA) { p.suggested = 'A'; nA++; }
@@ -1188,4 +1220,88 @@ function setFinal_(p) {
   } finally {
     lock.releaseLock();
   }
+}
+
+
+/* ───────────── 自動提醒信 ───────────── */
+
+const TASK_NAMES = {
+  self: ['自評', 'Tự đánh giá'], voice: ['心聲問卷', 'Khảo sát tâm tư'], up: ['給主管的回饋', 'Nhận xét về quản lý'],
+  peer: ['同儕回饋（主管指定的對象）', 'Nhận xét đồng nghiệp (người được chỉ định)'], thanks: ['感謝卡', 'Thiệp cảm ơn'],
+  assign: ['指定同儕評核人', 'Chỉ định người nhận xét'], mgr: ['主管評核', 'Đánh giá nhân viên']
+};
+function daysLeft_(ctx) {
+  const d = toDate_(ctx.settings['截止日']);
+  if (!d) return null;
+  const n = new Date(), today = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  return Math.round((d - today) / 86400000);
+}
+function reminderMail_(ctx, p, todo, left, url) {
+  const vi = p.lang === 'vi', dl = dateText_(ctx.settings['截止日']);
+  const list = todo.map(k => '・' + TASK_NAMES[k][vi ? 1 : 0]).join('\n');
+  const swap = todo.indexOf('assign') >= 0 && reportsOf_(ctx, p).some(r => declinedOf_(ctx, r).length);
+  if (vi) {
+    return { subject: '[Đánh giá ' + ctx.year + '] Còn ' + todo.length + ' mục chưa hoàn thành',
+      body: 'Chào ' + p.name + ',\n\nBạn còn các mục sau chưa hoàn thành:\n' + list + '\n\n' +
+        (dl ? 'Hạn chót: ' + dl + (left > 0 ? ' (còn ' + left + ' ngày)' : left === 0 ? ' (hôm nay)' : '') + '\n' : '') +
+        (swap ? 'Có đồng nghiệp báo ít làm việc cùng, vui lòng chỉ định người khác.\n' : '') +
+        (url ? 'Đăng nhập bằng Email trong hệ thống MAYO: ' + url + '\n' : '') +
+        '\nCác mục đã hoàn thành không cần làm lại. Đây là thư nhắc tự động.' };
+  }
+  return { subject: '【績效評核】還有 ' + todo.length + ' 個項目待完成' + (dl ? '（截止日 ' + dl + '）' : ''),
+    body: p.name + ' 您好：\n\n您的 ' + ctx.year + ' 年度績效評核還有以下項目尚未完成：\n' + list + '\n\n' +
+      (dl ? '截止日：' + dl + (left > 0 ? '（還有 ' + left + ' 天）' : left === 0 ? '（今天截止）' : '') + '\n' : '') +
+      (swap ? '有同事回報「合作不多，無法評分」，請到「指定同儕評核人」改選其他同事。\n' : '') +
+      (url ? '請用 MAYO 系統的 Email 登入填寫：' + url + '\n' : '') +
+      '\n已經完成的項目不需要重填。這是系統自動寄出的提醒信。' };
+}
+// force = true：不看天數，立刻寄給所有還沒完成的人
+function sendReminders_(force) {
+  clearMemo_();
+  ALL_TABLES.forEach(touch_);
+  const ctx = ctx_(), s = ctx.settings;
+  if (!yes_(s['開放填寫'])) return { sent: 0, failed: [], reason: 'closed' };
+  const left = daysLeft_(ctx);
+  const days = String(s['提醒信天數'] === undefined ? '7,3,1' : s['提醒信天數']).split(/[,，、\s]+/).filter(String).map(Number);
+  const key = 'REMIND_' + ctx.year + '_' + left;
+  if (!force) {
+    if (left === null || days.indexOf(left) < 0) return { sent: 0, failed: [], reason: 'notday' };
+    if (props_().getProperty(key)) return { sent: 0, failed: [], reason: 'already' };
+  }
+  let url = String(s['系統連結'] || '').trim();
+  if (!url) { try { url = ScriptApp.getService().getUrl() || ''; } catch (e) { url = ''; } }
+  let sent = 0;
+  const failed = [];
+  ctx.people.forEach(p => {
+    if (!p.email) return;
+    const tk = tasks_(ctx, p);
+    const todo = Object.keys(TASK_NAMES).filter(k => tk[k] === 'todo');
+    if (!todo.length) return;
+    const m = reminderMail_(ctx, p, todo, left, url);
+    try { sendMail_(ctx, p.email, m.subject, m.body); sent++; } catch (e) { failed.push(p.name); }
+  });
+  if (!force) props_().setProperty(key, String(Date.now()));
+  return { sent: sent, failed: failed, left: left };
+}
+function sendReminders() { sendReminders_(false); }   // 由每日排程呼叫
+function clearReminderTriggers_() {
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'sendReminders').forEach(t => ScriptApp.deleteTrigger(t));
+}
+function enableReminders() {
+  clearReminderTriggers_();
+  ScriptApp.newTrigger('sendReminders').timeBased().everyDays(1).atHour(9).create();
+  const s = readSettings_();
+  SpreadsheetApp.getUi().alert('已啟用自動提醒信', '每天上午 9 點左右檢查一次。距離截止日剩「' + (s['提醒信天數'] === undefined ? '7,3,1' : s['提醒信天數']) +
+    '」天時，寄信給還沒完成的同仁。\n\n天數可以在「設定」工作表的「提醒信天數」修改；「開放填寫」改成「否」後就不會再寄。', SpreadsheetApp.getUi().ButtonSet.OK);
+}
+function disableReminders() {
+  clearReminderTriggers_();
+  SpreadsheetApp.getUi().alert('已停用自動提醒信');
+}
+function remindNow() {
+  const ui = SpreadsheetApp.getUi();
+  if (ui.alert('現在就寄提醒信', '會立刻寄信給所有還有項目沒完成的同仁，確定要寄嗎？', ui.ButtonSet.OK_CANCEL) !== ui.Button.OK) return;
+  const r = sendReminders_(true);
+  ui.alert(r.reason === 'closed' ? '「開放填寫」目前是「否」，沒有寄出。' :
+    '已寄出 ' + r.sent + ' 封。' + (r.failed.length ? '\n寄送失敗：' + r.failed.join('、') : ''));
 }
